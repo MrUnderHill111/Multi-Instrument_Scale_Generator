@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Multi-Instrument Scale Generator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(ellipse at top, #1e3c72 0%, #2a5298 50%, #1a1a2e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 
+                0 32px 64px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: clamp(0.9rem, 2.5vw, 3.2em);
+            font-weight: 700;
+            letter-spacing: clamp(-0.05em, -0.01em, -0.02em);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
+            line-height: 1.1;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            text-align: center;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        select {
+            padding: 16px 20px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 140px;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        select:hover {
+            border-color: #667eea;
+            box-shadow: 
+                0 8px 32px rgba(102, 126, 234, 0.2),
+                0 0 0 4px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 
+                0 8px 32px rgba(102, 126, 234, 0.3),
+                0 0 0 4px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .scale-title {
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: 600;
+            margin-bottom: 32px;
+            color: #333;
+            letter-spacing: -0.01em;
+            position: relative;
+        }
+        
+        .reset-button {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            color: #666;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .reset-button:hover {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(102, 126, 234, 0.4);
+            color: #555;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+            transform: translateY(-50%) translateY(-1px);
+        }
+        
+        .reset-button:active {
+            transform: translateY(-50%) translateY(0px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        
+        .instruments-grid {
+            display: grid;
+            gap: 24px;
+            margin-top: 20px;
+        }
+        
+        .instruments-grid.single { grid-template-columns: 1fr; }
+        .instruments-grid.dual { grid-template-columns: 1fr 1fr; }
+        .instruments-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+        .instruments-grid.quad { grid-template-columns: 1fr 1fr; }
+        .instruments-grid.five { grid-template-columns: 1fr 1fr 1fr; }
+        .instruments-grid.six { grid-template-columns: 1fr 1fr 1fr; }
+        .instruments-grid.seven { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .instruments-grid.eight { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        
+        .instrument-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 
+                0 16px 32px rgba(0, 0, 0, 0.08),
+                0 0 0 1px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .instrument-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            opacity: 0.8;
+        }
+        
+        .instrument-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 
+                0 24px 48px rgba(0, 0, 0, 0.12),
+                0 0 0 1px rgba(102, 126, 234, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+        
+        .instrument-name {
+            text-align: center;
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+            letter-spacing: -0.01em;
+        }
+        
+        .instrument-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .instrument-controls select {
+            min-width: 120px;
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+        
+        .instrument-controls .instrument-select {
+            flex: 1;
+            min-width: 160px;
+        }
+        
+        .key-scale-row {
+            display: flex;
+            gap: 6px;
+            flex: 1;
+            min-width: 160px;
+        }
+        
+        .key-scale-row select {
+            flex: 1;
+            min-width: 70px;
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+        
+        .key-select {
+            border-color: rgba(240, 101, 149, 0.3) !important;
+            box-shadow: 0 4px 16px rgba(240, 101, 149, 0.1) !important;
+        }
+        
+        .key-select:hover {
+            border-color: #f065a6 !important;
+            box-shadow: 
+                0 8px 32px rgba(240, 101, 149, 0.2) !important,
+                0 0 0 4px rgba(240, 101, 149, 0.1) !important;
+        }
+        
+        .key-select:focus {
+            border-color: #f065a6 !important;
+            box-shadow: 
+                0 8px 32px rgba(240, 101, 149, 0.3) !important,
+                0 0 0 4px rgba(240, 101, 149, 0.2) !important;
+        }
+        
+        svg {
+            width: 100%;
+            height: 280px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.6);
+            display: block;
+            /* Critical iPhone Safari fixes */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
+        
+        .note-circle {
+            fill: url(#noteGradient);
+            stroke: #4c63d2;
+            stroke-width: 2.5;
+            cursor: pointer;
+            transition: fill 0.2s ease, stroke 0.2s ease;
+            filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
+        }
+        
+        .note-circle:hover {
+            fill: url(#noteGradientHover);
+            stroke: #764ba2;
+            filter: drop-shadow(0 4px 8px rgba(118, 75, 162, 0.4));
+        }
+        
+        .piano-key-white {
+            fill: rgba(255, 255, 255, 0.95);
+            stroke: #333;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .piano-key-black {
+            fill: #1a1a2e;
+            stroke: #111;
+            stroke-width: 1.5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .piano-key-active-white {
+            fill: url(#pianoGradient);
+            stroke: #4c63d2;
+            stroke-width: 2.5;
+            filter: drop-shadow(0 2px 6px rgba(102, 126, 234, 0.4));
+        }
+        
+        .piano-key-active-black {
+            fill: url(#pianoGradientDark);
+            stroke: #764ba2;
+            stroke-width: 2.5;
+            filter: drop-shadow(0 2px 6px rgba(118, 75, 162, 0.4));
+        }
+        
+        .note-text {
+            fill: white;
+            font-weight: 700;
+            font-size: 11px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        .piano-note-text {
+            font-size: 13px;
+            font-weight: 600;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        
+        .piano-note-text-white {
+            fill: #333;
+        }
+        
+        .piano-note-text-black {
+            fill: #333;
+        }
+        
+        .piano-note-text-inactive-white {
+            fill: #888;
+            font-size: 11px;
+        }
+        
+        .piano-note-text-inactive-black {
+            fill: #333;
+            font-size: 11px;
+        }
+        
+        .string-line {
+            stroke: #333;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+        }
+        
+        .fret-line {
+            stroke: #666;
+            stroke-width: 1.5;
+            opacity: 0.7;
+        }
+        
+        .nut {
+            stroke: #333;
+            stroke-width: 5;
+            stroke-linecap: round;
+        }
+        
+        .string-number, .fret-number {
+            font-size: 13px;
+            font-weight: 600;
+            fill: #555;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        
+        .footer-note {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            font-size: 11px;
+            color: #666;
+            line-height: 1.4;
+            text-align: right;
+            width: 280px;
+        }
+        
+        @media (min-width: 1400px) {
+            .footer-note {
+                position: static;
+                text-align: center;
+                margin-top: 30px;
+                width: auto;
+                max-width: 600px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .instruments-grid.triple,
+            .instruments-grid.quad,
+            .instruments-grid.five,
+            .instruments-grid.six,
+            .instruments-grid.seven,
+            .instruments-grid.eight {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .footer-note {
+                position: static;
+                text-align: center;
+                margin-top: 20px;
+                width: auto;
+                max-width: 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .instruments-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+            
+            .instrument-controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .key-scale-row {
+                min-width: 100%;
+            }
+            
+            .key-scale-row select {
+                min-width: 45%;
+                font-size: 14px;
+            }
+            
+            .instrument-controls .instrument-select {
+                min-width: 160px;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            select {
+                padding: 14px 18px;
+                min-width: 120px;
+                font-size: 16px;
+            }
+            
+            svg {
+                height: 240px;
+            }
+            
+            .piano-note-text {
+                font-size: 11px;
+            }
+            
+            .piano-note-text-inactive-white,
+            .piano-note-text-inactive-black {
+                font-size: 9px;
+            }
+            
+            .footer-note {
+                font-size: 10px;
+                margin-top: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+                border-radius: 16px;
+            }
+            
+            h1 {
+                font-size: 1.4em;
+                margin-bottom: 30px;
+            }
+            
+            .scale-title {
+                font-size: 1.4em;
+                margin-bottom: 24px;
+            }
+            
+            .reset-button {
+                position: static;
+                transform: none;
+                margin-top: 8px;
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            
+            svg {
+                height: 200px;
+            }
+            
+            .instrument-card {
+                padding: 16px;
+            }
+            
+            .controls {
+                gap: 16px;
+            }
+            
+            select {
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multi-Instrument Scale Generator</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="keySelect">Key</label>
+                <select id="keySelect">
+                    <option value="C">C</option>
+                    <option value="C#">C#</option>
+                    <option value="D">D</option>
+                    <option value="D#">D#</option>
+                    <option value="E">E</option>
+                    <option value="F">F</option>
+                    <option value="F#">F#</option>
+                    <option value="G">G</option>
+                    <option value="G#">G#</option>
+                    <option value="A">A</option>
+                    <option value="A#">A#</option>
+                    <option value="B">B</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="scaleSelect">Scale</label>
+                <select id="scaleSelect">
+                    <option value="Major">Major</option>
+                    <option value="Minor">Minor</option>
+                    <option value="Pentatonic Major">Pentatonic Major</option>
+                    <option value="Pentatonic Minor">Pentatonic Minor</option>
+                    <option value="Blues">Blues</option>
+                    <option value="Dorian">Dorian</option>
+                    <option value="Mixolydian">Mixolydian</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="numInstruments">Instruments</label>
+                <select id="numInstruments">
+                    <option value="1">Single View</option>
+                    <option value="2">Dual View</option>
+                    <option value="3">Triple View</option>
+                    <option value="4">Quad View</option>
+                    <option value="5">Five View</option>
+                    <option value="6">Six View</option>
+                    <option value="7">Seven View</option>
+                    <option value="8">Eight View</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="scale-title" id="scaleTitle">
+            C Major Scale
+            <button class="reset-button" onclick="resetAllInstruments()">Reset</button>
+        </div>
+        
+        <div id="instrumentsContainer" class="instruments-grid single">
+            <!-- Instrument cards will be generated here -->
+        </div>
+        
+        <div class="footer-note">
+            This tool was made to help keep music education fun and free for everyone. Feedback, inquiries, or feature requests are welcome at Mr.Underhill111@Yahoo.com
+        </div>
+    </div>
+
+    <script>
+        const allNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        
+        const instrumentTunings = {
+            piano: null,
+            guitar: [4, 9, 2, 7, 11, 4], // E, A, D, G, B, E
+            bass: [4, 9, 2, 7], // E, A, D, G
+            ukulele: [7, 0, 4, 9], // G, C, E, A
+            mandolin: [7, 2, 9, 4], // G, D, A, E
+            banjo: [7, 2, 7, 11, 2], // G, D, G, B, D
+            violin: [7, 2, 9, 4] // G, D, A, E
+        };
+        
+        const instrumentNames = {
+            piano: 'Piano',
+            guitar: 'Guitar',
+            bass: 'Bass Guitar', 
+            ukulele: 'Ukulele',
+            mandolin: 'Mandolin',
+            banjo: 'Banjo',
+            violin: 'Violin'
+        };
+        
+        const scaleIntervals = {
+            "Major": [0, 2, 4, 5, 7, 9, 11],
+            "Minor": [0, 2, 3, 5, 7, 8, 10],
+            "Pentatonic Major": [0, 2, 4, 7, 9],
+            "Pentatonic Minor": [0, 3, 5, 7, 10],
+            "Blues": [0, 3, 5, 6, 7, 10],
+            "Dorian": [0, 2, 3, 5, 7, 9, 10],
+            "Mixolydian": [0, 2, 4, 5, 7, 9, 10]
+        };
+        
+        let currentInstruments = ['piano'];
+        let instrumentKeys = ['follow']; // Track individual keys
+        let instrumentScales = ['follow']; // Track individual scales
+        
+        function getScaleNotes(key, scale) {
+            const keyIndex = allNotes.indexOf(key);
+            const intervals = scaleIntervals[scale];
+            return intervals.map(interval => (keyIndex + interval) % 12);
+        }
+        
+        function createGradientDefs(svg) {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            
+            const gradients = [
+                { id: 'noteGradient', stops: [['0%', '#667eea'], ['100%', '#764ba2']] },
+                { id: 'noteGradientHover', stops: [['0%', '#764ba2'], ['100%', '#f093fb']] },
+                { id: 'pianoGradient', stops: [['0%', '#667eea'], ['100%', '#764ba2']] },
+                { id: 'pianoGradientDark', stops: [['0%', '#764ba2'], ['100%', '#f093fb']] }
+            ];
+            
+            gradients.forEach(({ id, stops }) => {
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', id);
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '100%');
+                gradient.setAttribute('y2', '100%');
+                
+                stops.forEach(([offset, color]) => {
+                    const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                    stop.setAttribute('offset', offset);
+                    stop.setAttribute('stop-color', color);
+                    gradient.appendChild(stop);
+                });
+                
+                defs.appendChild(gradient);
+            });
+            
+            svg.appendChild(defs);
+        }
+        
+        function drawPiano(svg, scaleNotes) {
+            svg.innerHTML = '';
+            // Critical: Set proper namespace for iOS Safari
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            svg.setAttribute('viewBox', '0 0 1000 350');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '280');
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            
+            createGradientDefs(svg);
+            
+            // Use only 3 octaves for better spacing
+            const octaves = 3;
+            const whiteKeyWidth = 1000 / (octaves * 7);
+            const blackKeyWidth = whiteKeyWidth * 0.65;
+            const whiteKeyHeight = 220;
+            const blackKeyHeight = 140;
+            
+            let whiteKeyIndex = 0;
+            const keyPattern = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0];
+            
+            // Draw white keys
+            for (let octave = 0; octave < octaves; octave++) {
+                for (let noteInOctave = 0; noteInOctave < 12; noteInOctave++) {
+                    const noteIndex = noteInOctave;
+                    const isInScale = scaleNotes.includes(noteIndex);
+                    
+                    if (keyPattern[noteInOctave] === 0) {
+                        const x = whiteKeyIndex * whiteKeyWidth;
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('x', x);
+                        rect.setAttribute('y', 40);
+                        rect.setAttribute('width', whiteKeyWidth - 2);
+                        rect.setAttribute('height', whiteKeyHeight);
+                        rect.setAttribute('rx', 8);
+                        rect.setAttribute('class', isInScale ? 'piano-key-active-white' : 'piano-key-white');
+                        svg.appendChild(rect);
+                        
+                        // Add note text for white keys
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', x + whiteKeyWidth / 2);
+                        text.setAttribute('y', whiteKeyHeight + 85);
+                        text.setAttribute('class', isInScale ? 'piano-note-text piano-note-text-white' : 'piano-note-text piano-note-text-inactive-white');
+                        text.textContent = allNotes[noteIndex];
+                        svg.appendChild(text);
+                        
+                        whiteKeyIndex++;
+                    }
+                }
+            }
+            
+            // Draw black keys
+            whiteKeyIndex = 0;
+            for (let octave = 0; octave < octaves; octave++) {
+                for (let noteInOctave = 0; noteInOctave < 12; noteInOctave++) {
+                    const noteIndex = noteInOctave;
+                    const isInScale = scaleNotes.includes(noteIndex);
+                    
+                    if (keyPattern[noteInOctave] === 0) {
+                        whiteKeyIndex++;
+                    } else {
+                        const x = (whiteKeyIndex - 0.68) * whiteKeyWidth;
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('x', x);
+                        rect.setAttribute('y', 40);
+                        rect.setAttribute('width', blackKeyWidth);
+                        rect.setAttribute('height', blackKeyHeight);
+                        rect.setAttribute('rx', 6);
+                        rect.setAttribute('class', isInScale ? 'piano-key-active-black' : 'piano-key-black');
+                        svg.appendChild(rect);
+                        
+                        // Position black key text above the black keys, not on white keys
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', x + blackKeyWidth / 2);
+                        text.setAttribute('y', 25);
+                        text.setAttribute('class', isInScale ? 'piano-note-text piano-note-text-black' : 'piano-note-text piano-note-text-inactive-black');
+                        text.textContent = allNotes[noteIndex];
+                        svg.appendChild(text);
+                    }
+                }
+            }
+        }
+        
+        function drawStringedInstrument(svg, instrument, scaleNotes) {
+            svg.innerHTML = '';
+            // Critical: Set proper namespace for iOS Safari
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            svg.setAttribute('viewBox', '0 0 800 280');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '280');
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            
+            createGradientDefs(svg);
+            
+            const tuning = instrumentTunings[instrument];
+            const numStrings = tuning.length;
+            const stringSpacing = 180 / (numStrings + 1);
+            const startY = 50;
+            const fretWidth = 600 / 12;
+            const startX = 80;
+            
+            // Draw strings
+            for (let i = 0; i < numStrings; i++) {
+                const y = startY + (i + 1) * stringSpacing;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', startX);
+                line.setAttribute('y1', y);
+                line.setAttribute('x2', startX + 600);
+                line.setAttribute('y2', y);
+                line.setAttribute('class', 'string-line');
+                svg.appendChild(line);
+                
+                let stringLabel;
+                if (instrument === 'guitar' || instrument === 'bass') {
+                    stringLabel = numStrings - i;
+                } else if (instrument === 'banjo') {
+                    const banjoOrder = [4, 3, 2, 1, 5];
+                    stringLabel = banjoOrder[i];
+                } else {
+                    stringLabel = i + 1;
+                }
+                
+                const stringNum = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                stringNum.setAttribute('x', 40);
+                stringNum.setAttribute('y', y);
+                stringNum.setAttribute('class', 'string-number');
+                stringNum.textContent = stringLabel;
+                svg.appendChild(stringNum);
+            }
+            
+            // Draw frets
+            for (let fret = 0; fret <= 12; fret++) {
+                const x = startX + fret * fretWidth;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('y1', startY);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', startY + (numStrings + 1) * stringSpacing);
+                line.setAttribute('class', fret === 0 ? 'nut' : 'fret-line');
+                svg.appendChild(line);
+                
+                if (fret > 0) {
+                    const fretNum = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    fretNum.setAttribute('x', x);
+                    fretNum.setAttribute('y', startY + (numStrings + 1) * stringSpacing + 25);
+                    fretNum.setAttribute('class', 'fret-number');
+                    fretNum.textContent = fret;
+                    svg.appendChild(fretNum);
+                }
+            }
+            
+            // Draw scale notes
+            for (let string = 0; string < numStrings; string++) {
+                const y = startY + (string + 1) * stringSpacing;
+                const openNote = tuning[string];
+                
+                for (let fret = 0; fret <= 12; fret++) {
+                    const noteAtFret = (openNote + fret) % 12;
+                    if (scaleNotes.includes(noteAtFret)) {
+                        const x = startX + fret * fretWidth;
+                        
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', x);
+                        circle.setAttribute('cy', y);
+                        circle.setAttribute('r', 14);
+                        circle.setAttribute('class', 'note-circle');
+                        svg.appendChild(circle);
+                        
+                        const noteName = allNotes[noteAtFret];
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', x);
+                        text.setAttribute('y', y);
+                        text.setAttribute('class', 'note-text');
+                        text.textContent = noteName;
+                        svg.appendChild(text);
+                    }
+                }
+            }
+        }
+        
+        function getInstrumentKey(index) {
+            return instrumentKeys[index] === 'follow' ? 
+                document.getElementById('keySelect').value : 
+                instrumentKeys[index];
+        }
+        
+        function getInstrumentScale(index) {
+            return instrumentScales[index] === 'follow' ? 
+                document.getElementById('scaleSelect').value : 
+                instrumentScales[index];
+        }
+        
+        function updateInstrument(index, instrument) {
+            currentInstruments[index] = instrument;
+            const card = document.querySelectorAll('.instrument-card')[index];
+            const nameElement = card.querySelector('.instrument-name');
+            nameElement.textContent = instrumentNames[instrument];
+            updateSingleDisplay(index);
+        }
+        
+        function updateInstrumentKey(index, key) {
+            instrumentKeys[index] = key;
+            updateKeyDisplayText(index);
+            updateSingleDisplay(index);
+            updateTitle();
+        }
+        
+        function updateInstrumentScale(index, scale) {
+            instrumentScales[index] = scale;
+            updateScaleDisplayText(index);
+            updateSingleDisplay(index);
+            updateTitle();
+        }
+        
+        function updateKeyDisplayText(index) {
+            const keySelect = document.querySelector(`#instrumentKey${index}`);
+            const actualKey = getInstrumentKey(index);
+            
+            // Update the "Follow Global" option to show current key
+            const followOption = keySelect.querySelector('option[value="follow"]');
+            if (followOption) {
+                followOption.textContent = actualKey;
+            }
+        }
+        
+        function updateScaleDisplayText(index) {
+            const scaleSelect = document.querySelector(`#instrumentScale${index}`);
+            const actualScale = getInstrumentScale(index);
+            
+            // Update the "Follow Global" option to show current scale
+            const followOption = scaleSelect.querySelector('option[value="follow"]');
+            if (followOption) {
+                followOption.textContent = actualScale;
+            }
+        }
+        
+        function updateSingleDisplay(index) {
+            const svg = document.getElementById(`svg${index}`);
+            
+            if (!svg) return;
+            
+            const key = getInstrumentKey(index);
+            const scale = getInstrumentScale(index);
+            const scaleNotes = getScaleNotes(key, scale);
+            const instrument = currentInstruments[index];
+            
+            if (instrument === 'piano') {
+                drawPiano(svg, scaleNotes);
+            } else {
+                drawStringedInstrument(svg, instrument, scaleNotes);
+            }
+            
+            // Force iOS Safari to render SVG properly
+            requestAnimationFrame(() => {
+                svg.style.display = 'none';
+                svg.offsetHeight; // Trigger reflow
+                svg.style.display = 'block';
+            });
+        }
+        
+        function updateTitle() {
+            const titleElement = document.getElementById('scaleTitle');
+            
+            if (!titleElement) return;
+            
+            // Get all unique keys and scales being used
+            const usedKeys = new Set();
+            const usedScales = new Set();
+            
+            instrumentKeys.forEach((key, index) => {
+                const actualKey = key === 'follow' ? document.getElementById('keySelect').value : key;
+                usedKeys.add(actualKey);
+            });
+            
+            instrumentScales.forEach((scale, index) => {
+                const actualScale = scale === 'follow' ? document.getElementById('scaleSelect').value : scale;
+                usedScales.add(actualScale);
+            });
+            
+            let titleText = '';
+            if (usedKeys.size === 1 && usedScales.size === 1) {
+                const singleKey = Array.from(usedKeys)[0];
+                const singleScale = Array.from(usedScales)[0];
+                titleText = `${singleKey} ${singleScale} Scale`;
+            } else if (usedKeys.size === 1) {
+                const singleKey = Array.from(usedKeys)[0];
+                titleText = `${singleKey} - Multiple Scales`;
+            } else if (usedScales.size === 1) {
+                const singleScale = Array.from(usedScales)[0];
+                titleText = `Multiple Keys - ${singleScale} Scale`;
+            } else {
+                titleText = `Multiple Keys & Scales`;
+            }
+            
+            // Update only the text content, not the entire HTML
+            const textNode = titleElement.firstChild;
+            if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                textNode.textContent = titleText;
+            } else {
+                // If no text node exists, create the structure
+                titleElement.innerHTML = `${titleText}<button class="reset-button" onclick="resetAllInstruments()">Reset</button>`;
+            }
+        }
+        
+        function resetAllInstruments() {
+            // Reset all instruments to follow global settings
+            for (let i = 0; i < currentInstruments.length; i++) {
+                instrumentKeys[i] = 'follow';
+                instrumentScales[i] = 'follow';
+                
+                // Update the dropdowns to show "follow" as selected
+                const keySelect = document.querySelector(`#instrumentKey${i}`);
+                const scaleSelect = document.querySelector(`#instrumentScale${i}`);
+                
+                if (keySelect) keySelect.value = 'follow';
+                if (scaleSelect) scaleSelect.value = 'follow';
+                
+                // Update display text and visuals
+                updateKeyDisplayText(i);
+                updateScaleDisplayText(i);
+                updateSingleDisplay(i);
+            }
+            
+            // Update title
+            updateTitle();
+        }
+        
+        function updateAllDisplays() {
+            updateTitle();
+            
+            for (let i = 0; i < currentInstruments.length; i++) {
+                updateSingleDisplay(i);
+            }
+        }
+        
+        function updateGlobalKey() {
+            // Update all instruments that are set to "Follow Global"
+            instrumentKeys.forEach((key, index) => {
+                if (key === 'follow') {
+                    updateKeyDisplayText(index);
+                    updateSingleDisplay(index);
+                }
+            });
+            updateTitle();
+        }
+        
+        function updateGlobalScale() {
+            // Update all instruments that are set to "Follow Global"
+            instrumentScales.forEach((scale, index) => {
+                if (scale === 'follow') {
+                    updateScaleDisplayText(index);
+                    updateSingleDisplay(index);
+                }
+            });
+            updateTitle();
+        }
+        
+        function createKeyOptions(currentGlobalKey) {
+            return `
+                <option value="follow">${currentGlobalKey}</option>
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A">A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
+            `;
+        }
+        
+        function createScaleOptions(currentGlobalScale) {
+            return `
+                <option value="follow">${currentGlobalScale}</option>
+                <option value="Major">Major</option>
+                <option value="Minor">Minor</option>
+                <option value="Pentatonic Major">Pentatonic Major</option>
+                <option value="Pentatonic Minor">Pentatonic Minor</option>
+                <option value="Blues">Blues</option>
+                <option value="Dorian">Dorian</option>
+                <option value="Mixolydian">Mixolydian</option>
+            `;
+        }
+        
+        function updateInstrumentLayout() {
+            const numInstruments = parseInt(document.getElementById('numInstruments').value);
+            const container = document.getElementById('instrumentsContainer');
+            
+            container.className = `instruments-grid ${['single', 'dual', 'triple', 'quad', 'five', 'six', 'seven', 'eight'][numInstruments - 1]}`;
+            
+            container.innerHTML = '';
+            currentInstruments = [];
+            instrumentKeys = [];
+            instrumentScales = [];
+            
+            const globalKey = document.getElementById('keySelect').value;
+            const globalScale = document.getElementById('scaleSelect').value;
+            
+            for (let i = 0; i < numInstruments; i++) {
+                const defaultInstruments = ['piano', 'guitar', 'bass', 'ukulele', 'mandolin', 'banjo', 'violin', 'piano'];
+                const defaultInstrument = defaultInstruments[i] || 'piano';
+                currentInstruments.push(defaultInstrument);
+                instrumentKeys.push('follow');
+                instrumentScales.push('follow');
+                
+                const card = document.createElement('div');
+                card.className = 'instrument-card';
+                card.innerHTML = `
+                    <div class="instrument-controls">
+                        <select class="instrument-select" onchange="updateInstrument(${i}, this.value)">
+                            <option value="piano" ${defaultInstrument === 'piano' ? 'selected' : ''}>Piano</option>
+                            <option value="guitar" ${defaultInstrument === 'guitar' ? 'selected' : ''}>Guitar</option>
+                            <option value="bass" ${defaultInstrument === 'bass' ? 'selected' : ''}>Bass Guitar</option>
+                            <option value="ukulele" ${defaultInstrument === 'ukulele' ? 'selected' : ''}>Ukulele</option>
+                            <option value="mandolin" ${defaultInstrument === 'mandolin' ? 'selected' : ''}>Mandolin</option>
+                            <option value="banjo" ${defaultInstrument === 'banjo' ? 'selected' : ''}>Banjo</option>
+                            <option value="violin" ${defaultInstrument === 'violin' ? 'selected' : ''}>Violin</option>
+                        </select>
+                        <div class="key-scale-row">
+                            <select class="key-select" id="instrumentKey${i}" onchange="updateInstrumentKey(${i}, this.value)">
+                                ${createKeyOptions(globalKey)}
+                            </select>
+                            <select class="key-select" id="instrumentScale${i}" onchange="updateInstrumentScale(${i}, this.value)">
+                                ${createScaleOptions(globalScale)}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="instrument-name">${instrumentNames[defaultInstrument]}</div>
+                    <svg id="svg${i}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="100%" height="280" preserveAspectRatio="xMidYMid meet"></svg>
+                `;
+                container.appendChild(card);
+            }
+            
+            // Critical delay for iOS Safari to properly initialize SVGs
+            setTimeout(() => {
+                updateAllDisplays();
+            }, 100);
+        }
+        
+        // Event listeners
+        function addEventListeners() {
+            const keySelect = document.getElementById('keySelect');
+            const scaleSelect = document.getElementById('scaleSelect');
+            const numInstruments = document.getElementById('numInstruments');
+            
+            if (keySelect) keySelect.addEventListener('change', updateGlobalKey);
+            if (scaleSelect) scaleSelect.addEventListener('change', updateGlobalScale);
+            if (numInstruments) numInstruments.addEventListener('change', updateInstrumentLayout);
+        }
+        
+        // Initialize with enhanced iOS Safari compatibility
+        function initialize() {
+            // Wait for DOM to be fully ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(() => {
+                        updateInstrumentLayout();
+                        addEventListeners();
+                    }, 200);
+                });
+            } else {
+                setTimeout(() => {
+                    updateInstrumentLayout();
+                    addEventListeners();
+                }, 200);
+            }
+        }
+        
+        // Enhanced initialization for iOS Safari
+        if (document.readyState === 'complete') {
+            setTimeout(initialize, 100);
+        } else {
+            window.addEventListener('load', () => {
+                setTimeout(initialize, 100);
+            });
+        }
+    </script>
+</body>
+</html>
