@@ -1,3 +1,5 @@
+8/24/25 *note- I will slowly continue to add more instruments, scales, and overall fuctionality. Please feel free to request anything specific.
+
 A lightweight web-app that uses simple dropdown boxes to generate images of musical scales across a range of instruments and keys. This tool uses SVG image generation instead of relying on assets, enabling full functionality when downloaded for local desktop use.
 
 Instructions:
