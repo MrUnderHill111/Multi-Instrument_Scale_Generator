@@ -565,23 +565,23 @@
             </div>
             
             <div class="control-group">
-                <label for="numInstruments">Instruments</label>
+                <label for="numInstruments">#</label>
                 <select id="numInstruments">
-                    <option value="1">Single View</option>
-                    <option value="2">Dual View</option>
-                    <option value="3">Triple View</option>
-                    <option value="4">Quad View</option>
-                    <option value="5">Five View</option>
-                    <option value="6">Six View</option>
-                    <option value="7">Seven View</option>
-                    <option value="8">Eight View</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
                 </select>
             </div>
         </div>
         
         <div class="scale-title" id="scaleTitle">
             C Major Scale
-            <button class="reset-button" onclick="resetAllInstruments()">Reset</button>
+            <button class="reset-button" onclick="resetAllInstruments()">Reset Key</button>
         </div>
         
         <div id="instrumentsContainer" class="instruments-grid single">
@@ -1070,8 +1070,7 @@
             const globalScale = document.getElementById('scaleSelect').value;
             
             for (let i = 0; i < numInstruments; i++) {
-                const defaultInstruments = ['piano', 'guitar', 'bass', 'ukulele', 'mandolin', 'banjo', 'violin', 'piano'];
-                const defaultInstrument = defaultInstruments[i] || 'piano';
+                const defaultInstrument = 'piano';
                 currentInstruments.push(defaultInstrument);
                 instrumentKeys.push('follow');
                 instrumentScales.push('follow');
