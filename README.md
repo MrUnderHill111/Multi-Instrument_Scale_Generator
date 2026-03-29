@@ -8,6 +8,13 @@ Instructions:
 2. Use the dropdown boxes at the individual instrument level to choose a specific instrument and to further customize your key preferences.
 3. Practice and have fun! 
 
+V4 release -3/28/26
+
+- Changed the order of the string arrangement from lowest string to highest on all string instruments.
+- Moved open notes on string instruments to the left of the nut instead of directly on the nut.
+- Moved notes from directly touching the fret grid to centering in between the frets.
+- Added a dropdown for changing the instrument type at the global level.
+
 V3 release -8/24/25
 
 - Added additional functionality for individual key changes at the instrument level.
