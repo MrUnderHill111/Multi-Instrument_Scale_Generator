@@ -212,7 +212,7 @@ function drawPiano(svg, scaleNotes) {
             const r=svgEl('rect',{x,y:40,width:bkw,height:bkh,rx:6});
             r.setAttribute('style', ins ? 'fill:url(#pianoGradientDark);stroke:#764ba2;stroke-width:2.5' : 'fill:#1a1a2e;stroke:#111;stroke-width:1.5');
             svg.appendChild(r);
-            const t=svgEl('text',{x:x+bkw/2,y:25,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','font-size':ins?13:11,fill:'#eee','font-weight':ins?600:400});
+            const t=svgEl('text',{x:x+bkw/2,y:25,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','font-size':ins?13:11,fill:ins?'#333':'#aaa','font-weight':ins?600:400});
             t.textContent=allNotes[n]; svg.appendChild(t);
         }
     }
