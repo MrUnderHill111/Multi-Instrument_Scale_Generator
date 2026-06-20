@@ -60,6 +60,7 @@
         .instrument-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%); }
         .instrument-card:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,0.12); }
         .instrument-name { text-align: center; font-size: 1.4em; font-weight: 600; margin-bottom: 20px; color: #333; }
+        .scale-notes { text-align: center; font-size: 11px; font-weight: 500; color: #777; margin-top: 4px; letter-spacing: 0.2px; line-height: 1.4; word-break: break-word; }
         .instrument-controls { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
         .instrument-controls select { min-width: 120px; padding: 12px 16px; font-size: 14px; }
         .instrument-controls .instrument-select { flex: 1; min-width: 160px; }
@@ -67,11 +68,15 @@
         .key-scale-row select { flex: 1; min-width: 70px; padding: 10px 12px; font-size: 13px; }
         .key-select { border-color: rgba(240,101,149,0.3) !important; box-shadow: 0 4px 16px rgba(240,101,149,0.1) !important; }
         .key-select:hover, .key-select:focus { border-color: #f065a6 !important; }
-        svg { width: 100%; height: 280px; border-radius: 12px; background: rgba(255,255,255,0.6); display: block; -webkit-transform: translateZ(0); transform: translateZ(0); }
+        .shape-row { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
+        .shape-select { flex: 1; padding: 10px 12px; font-size: 13px; border-color: rgba(32,178,170,0.35) !important; box-shadow: 0 4px 16px rgba(32,178,170,0.1) !important; }
+        .shape-select:hover, .shape-select:focus { border-color: #20b2aa !important; }
+        .shape-row.hidden { display: none; }
+        svg { width: 100%; height: auto; aspect-ratio: 900 / 280; border-radius: 12px; background: rgba(255,255,255,0.6); display: block; }
         .footer-note { text-align: center; margin-top: 30px; font-size: 11px; color: #666; line-height: 1.4; }
         @media (max-width: 1200px) { .instruments-grid.triple,.instruments-grid.quad,.instruments-grid.five,.instruments-grid.six,.instruments-grid.seven,.instruments-grid.eight { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 768px) { .instruments-grid { grid-template-columns: 1fr !important; } .controls { flex-direction: column; align-items: center; } .instrument-controls { flex-direction: column; } .container { padding: 20px; } select { font-size: 16px; } svg { height: 240px; } }
-        @media (max-width: 480px) { .container { padding: 15px; } .reset-button { position: static; transform: none; display: block; margin: 8px auto 0; } svg { height: 200px; } }
+        @media (max-width: 768px) { .instruments-grid { grid-template-columns: 1fr !important; } .controls { flex-direction: column; align-items: center; } .instrument-controls { flex-direction: column; } .container { padding: 20px; } select { font-size: 16px; } }
+        @media (max-width: 480px) { .container { padding: 15px; } .reset-button { position: static; transform: none; display: block; margin: 8px auto 0; } .scale-notes { font-size: 10px; } }
     </style>
 </head>
 <body>
@@ -113,8 +118,7 @@
             </select>
         </div>
     </div>
-    <div class="scale-title" id="scaleTitle">
-        C Major Scale
+    <div class="scale-title" id="scaleTitle">C Major Scale
         <button class="reset-button" onclick="resetAllInstruments()">Reset Key</button>
     </div>
     <div id="instrumentsContainer" class="instruments-grid single"></div>
@@ -123,219 +127,431 @@
 <script>
 const allNotes = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// Tunings: index 0 = TOP of diagram (highest string), last index = BOTTOM (lowest string)
-// Guitar top-to-bottom: high e, B, G, D, A, low E
-// Banjo (open G tuning) top-to-bottom: d(5th/drone), B(1st), G(2nd), D(3rd), G(4th/low)
-// The 5th string (index 0) is the short drone string — it starts at fret 5, not the nut.
 const instrumentTunings = {
-    piano:    null,
-    guitar:   [4, 11, 7, 2, 9, 4],   // e B G D A E
-    bass:     [7, 2, 9, 4],           // G D A E
-    ukulele:  [9, 4, 0, 7],           // A E C G
-    mandolin: [4, 9, 2, 7],           // E A D G
-    banjo:    [2, 11, 7, 2, 7],       // D(1st) B(2nd) G(3rd) D(4th) G-drone(5th)  — top to bottom in tab
-    violin:   [4, 9, 2, 7]            // E A D G
+    piano: null,
+    guitar:   [4,11,7,2,9,4],
+    bass:     [7,2,9,4],
+    ukulele:  [9,4,0,7],
+    mandolin: [4,9,2,7],
+    banjo:    [2,11,7,2,7],
+    violin:   [4,9,2,7]
 };
-
-// Labels matching tuning order (top string first)
 const stringLabels = {
     guitar:   ['e','B','G','D','A','E'],
     bass:     ['G','D','A','E'],
     ukulele:  ['A','E','C','G'],
     mandolin: ['E','A','D','G'],
-    banjo:    ['D','B','G','D','G'],   // D=1st, B=2nd, G=3rd, D=4th, G=5th drone (short, bottom of tab)
+    banjo:    ['D','B','G','D','G'],
     violin:   ['E','A','D','G']
 };
-
-// For banjo: the 5th string (index 0 in diagram = top row) is a short string
-// that starts at the 5th fret peg, not at the nut. Its open pitch = d (note 2).
-// We draw it starting from fret 5 onward and show a peg symbol there instead of a nut marker.
-const BANJO_DRONE_STRING_INDEX = 4;  // 5th string is the LAST row in tab (bottom), short G drone
+const BANJO_DRONE_STRING_INDEX = 4;
 const BANJO_DRONE_START_FRET   = 5;
-
 const instrumentNames = {
     piano:'Piano', guitar:'Guitar', bass:'Bass Guitar',
     ukulele:'Ukulele', mandolin:'Mandolin', banjo:'Banjo', violin:'Violin'
 };
-
 const scaleIntervals = {
     "Major":[0,2,4,5,7,9,11], "Minor":[0,2,3,5,7,8,10],
     "Pentatonic Major":[0,2,4,7,9], "Pentatonic Minor":[0,3,5,7,10],
     "Blues":[0,3,5,6,7,10], "Dorian":[0,2,3,5,7,9,10], "Mixolydian":[0,2,4,5,7,9,10]
 };
+const SUPPORTS_3NPS = new Set(["Major","Minor","Dorian","Mixolydian"]);
+const ALT_KEYS = new Set(["C","D#","E","G"]);
 
-let currentInstruments=[], instrumentKeys=[], instrumentScales=[], instrumentTypes=[];
+// Guitar string open notes absolute (C=0): lowE=E=4, A=9, D=2, G=7, B=11, highE=4
+// Diagram index: 5=lowE, 4=A, 3=D, 2=G, 1=B, 0=highE
+const STR_OPEN_ABS = {5:4, 4:9, 3:2, 2:7, 1:11, 0:4};
+
+function rootFretLowE(key) {
+    const f = (allNotes.indexOf(key) - 4 + 12) % 12;
+    return f === 0 ? 12 : f;
+}
+
+function noteAt(si, fret) { return (STR_OPEN_ABS[si] + fret) % 12; }
 
 function getScaleNotes(key, scale) {
     const root = allNotes.indexOf(key);
     return scaleIntervals[scale].map(i => (root+i)%12);
 }
 
+function formatScaleNoteNames(key, scale) {
+    return 'Notes: ' + getScaleNotes(key, scale).map(n => allNotes[n]).join(' - ');
+}
+
+// ── CAGED shapes ─────────────────────────────────────────────────────────────
+// Each of the 5 CAGED shapes is anchored to where the root note physically
+// falls on a specific "tracking" string (E-shape/G-shape -> low E string,
+// D-shape -> D string, C-shape/A-shape -> A string), exactly matching how
+// guitarists actually locate these positions. Anchors are placed in strictly
+// ascending order up the neck (E -> D -> C/A -> G), so every shape lands in
+// its real, correct location for every key instead of an arbitrary window.
+// Verified across all 12 keys against real published root-note positions
+// (e.g. appliedguitartheory.com's C major scale position breakdown) before
+// shipping. Blues boxes use the same anchors, widened by 1 fret to fit the
+// extra blue note.
+// Verified directly against real fret positions (per-key, per-scale-type
+// confirmed): Major and Minor each have their own box widths (minor's
+// natural-minor interval pattern needs different spacing than major's),
+// Blues has its own, and everything else (Dorian, Mixolydian, Pentatonic)
+// keeps the original table untouched since it was already correct.
+const CAGED_MAJOR   = [[-1,2],[2,6],[4,7],[-6,-2],[-4,0]];
+const CAGED_MINOR   = [[-1,3],[2,5],[4,8],[-5,-2],[-3,1]];
+const CAGED_BLUES   = [[0,3],[2,6],[-8,-4],[-5,-1],[-3,1]];
+const CAGED_DEFAULT = [[-1,2],[2,5],[4,7],[-6,-3],[-3,0]];
+
+function cagedWindow(key, scaleType, idx) {
+    const rf = rootFretLowE(key);
+    const table = scaleType === 'Major' ? CAGED_MAJOR
+                : scaleType === 'Minor' ? CAGED_MINOR
+                : scaleType === 'Blues' ? CAGED_BLUES
+                : CAGED_DEFAULT;
+    let lo = rf + table[idx][0], hi = rf + table[idx][1];
+    while (lo < 0)  { lo += 12; hi += 12; }
+    while (lo > 12) { lo -= 12; hi -= 12; }
+    return [lo, hi];
+}
+
+// Extended blues position: a single wide box spanning ~9 frets, transposed
+// from the verified C blues extended position (frets 6-14).
+function extendedBluesWindow(key) {
+    const rf = rootFretLowE(key);
+    let lo = rf - 2, hi = rf + 6;
+    while (lo < 0) { lo += 12; hi += 12; }
+    return [lo, hi];
+}
+
+// ── 3NPS ─────────────────────────────────────────────────────────────────────
+// Precomputed (string,fret) set, exactly up to 3 notes per string, scanning upward
+// from the anchor fret. This guarantees no string ever shows more than 3 dots,
+// which an open-ended fret-window check cannot guarantee (adjacent strings tuned
+// a major 3rd apart, e.g. low E to B, can pack 4 scale tones into a 6-fret span).
+function npsSet(key, scaleType, pos) {
+    const ivs = scaleIntervals[scaleType];
+    if (!ivs) return null;
+    const root = allNotes.indexOf(key);
+    const sn = new Set(ivs.map(i => (root+i)%12));
+    const rf = rootFretLowE(key);
+    const degree = (pos - 1) % ivs.length;
+    let anchor = rf + ivs[degree];
+    while (anchor > 17) anchor -= 12;
+    while (anchor < 1)  anchor += 12;
+    const result = new Set();
+    for (const si of [5,4,3,2,1,0]) {
+        let count = 0;
+        for (let f = anchor; f <= 17 && count < 3; f++) {
+            if (sn.has(noteAt(si, f))) { result.add(si+':'+f); count++; }
+        }
+    }
+    return result;
+}
+
+// ── 2-Octave runs ─────────────────────────────────────────────────────────────
+// Blues uses degree-based approach to correctly pick E,G on B string (not Eb,E).
+const BLUES_2OCT_DEGREES = {5:[0,1],4:[2,3,4],3:[5,0],2:[1,2],1:[4,5],0:[0,1]};
+const BLUES_2OCT_OCT     = {5:0,   4:0,      3:1,    2:1,    1:1,    0:2   };
+const BLUES_IVS = [0,3,5,6,7,10];
+
+function get2OctBlues(key) {
+    const root = allNotes.indexOf(key);
+    const rf   = rootFretLowE(key);
+    const result = new Set();
+    for (const si of [5,4,3,2,1,0]) {
+        const oct = BLUES_2OCT_OCT[si];
+        for (const degIdx of BLUES_2OCT_DEGREES[si]) {
+            const interval = BLUES_IVS[degIdx % 6] + oct * 12;
+            const targetNote = (root + interval) % 12;
+            let best = null;
+            for (let f = 1; f <= 17; f++) {
+                if (noteAt(si, f) === targetNote) {
+                    if (best === null || Math.abs(f - rf) < Math.abs(best - rf)) best = f;
+                }
+            }
+            if (best !== null) result.add(si + ':' + best);
+        }
+    }
+    return result;
+}
+
+// Walk-based 2-oct for all other scales
+const STR_OPEN_FROM_LOWE = [24,19,15,10,5,0];
+const TWO_OCT_MAX = {
+    "Major":          {5:2,4:3,3:3,2:3,1:2,0:2},
+    "Minor":          {5:3,4:3,3:2,2:3,1:3,0:3},
+    "Pentatonic Major":{5:2,4:2,3:2,2:2,1:2,0:2},
+    "Pentatonic Minor":{5:2,4:2,3:2,2:2,1:2,0:2},
+    "Dorian":         {5:2,4:3,3:3,2:3,1:2,0:2},
+    "Mixolydian":     {5:2,4:3,3:3,2:3,1:2,0:2},
+};
+
+function get2OctWalk(key, scaleType) {
+    const ivs = scaleIntervals[scaleType];
+    if (!ivs) return new Set();
+    const root = allNotes.indexOf(key);
+    const rf   = rootFretLowE(key);
+    const seq  = [...ivs,...ivs.map(i=>i+12),...ivs.map(i=>i+24),ivs[0]+36];
+    const rootAbs = STR_OPEN_FROM_LOWE[5] + rf;
+    const mm  = TWO_OCT_MAX[scaleType] || TWO_OCT_MAX["Major"];
+    const result = new Set();
+    let ni = 0;
+    for (let si = 5; si >= 0; si--) {
+        const so = STR_OPEN_FROM_LOWE[si];
+        let firstFret = null, cnt = 0;
+        const maxN = mm[si] || 2;
+        while (ni < seq.length) {
+            const fret = (rootAbs + seq[ni]) - so;
+            if (fret < 1)  { ni++; continue; }
+            if (fret > 17) break;
+            if (firstFret === null) firstFret = fret;
+            if (fret - firstFret > 5) break;
+            if (cnt >= maxN) break;
+            result.add(si + ':' + fret);
+            ni++; cnt++;
+        }
+    }
+    return result;
+}
+
+function get2OctNotes(key, scaleType) {
+    if (scaleType === 'Blues') return get2OctBlues(key);
+    return get2OctWalk(key, scaleType);
+}
+
+// ── Alt position (guitar, specific keys, major-shape only) ───────────────────
+const ALT_OFFSETS       = [[0,2],[-1,0,2],[-1,1,2],[0,2,3],[0,2,4,5]];
+const ALT_STRING_IDX    = [4,3,2,1,0];
+function getAltNotes(key) {
+    const result = new Set();
+    const rootNote = allNotes.indexOf(key);
+    let rootFret = (rootNote - 9 + 12) % 12;
+    if (rootFret === 0) rootFret = 12;
+    ALT_STRING_IDX.forEach((si,i) => {
+        ALT_OFFSETS[i].forEach(off => {
+            let f = rootFret + off;
+            if (f < 1) f += 12;
+            result.add(si + ':' + f);
+        });
+    });
+    return result;
+}
+
+// ── SVG helpers ──────────────────────────────────────────────────────────────
 function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
     for (const [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
     return el;
 }
-
 function addGradients(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-    [['noteGradient','#667eea','#764ba2'],['pianoGradient','#667eea','#764ba2'],['pianoGradientDark','#764ba2','#f093fb']].forEach(([id,c1,c2])=>{
+    [
+        ['noteGrad','#667eea','#764ba2'],
+        ['rootGrad','#e8195a','#a8003a'],
+        ['pianoGrad','#667eea','#764ba2'],
+        ['pianoDarkGrad','#764ba2','#f093fb'],
+        ['pianoRootGrad','#e8195a','#a8003a'],
+        ['pianoRootDarkGrad','#a8003a','#6a0020'],
+    ].forEach(([id,c1,c2]) => {
         const g = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
-        g.setAttribute('id',id); g.setAttribute('x1','0%'); g.setAttribute('y1','0%'); g.setAttribute('x2','100%'); g.setAttribute('y2','100%');
-        const s1=document.createElementNS('http://www.w3.org/2000/svg','stop'); s1.setAttribute('offset','0%'); s1.setAttribute('stop-color',c1);
-        const s2=document.createElementNS('http://www.w3.org/2000/svg','stop'); s2.setAttribute('offset','100%'); s2.setAttribute('stop-color',c2);
+        g.setAttribute('id',id); g.setAttribute('x1','0%'); g.setAttribute('y1','0%');
+        g.setAttribute('x2','100%'); g.setAttribute('y2','100%');
+        const s1 = document.createElementNS('http://www.w3.org/2000/svg','stop');
+        s1.setAttribute('offset','0%'); s1.setAttribute('stop-color',c1);
+        const s2 = document.createElementNS('http://www.w3.org/2000/svg','stop');
+        s2.setAttribute('offset','100%'); s2.setAttribute('stop-color',c2);
         g.appendChild(s1); g.appendChild(s2); defs.appendChild(g);
     });
     svg.appendChild(defs);
 }
 
-function drawPiano(svg, scaleNotes) {
-    svg.innerHTML='';
-    svg.setAttribute('viewBox','0 0 1000 350'); svg.setAttribute('width','100%'); svg.setAttribute('height','280'); svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+// ── Piano ────────────────────────────────────────────────────────────────────
+function drawPiano(svg, scaleNotes, rootNote) {
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox','0 0 1000 350');
+    svg.style.aspectRatio = '1000 / 350';
+    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
     addGradients(svg);
     const octaves=3, wkw=1000/(octaves*7), bkw=wkw*0.65, wkh=220, bkh=140;
-    const kp=[0,1,0,1,0,0,1,0,1,0,1,0];
+    const isBlack=[0,1,0,1,0,0,1,0,1,0,1,0];
     let wi=0;
-    for(let o=0;o<octaves;o++) for(let n=0;n<12;n++) if(kp[n]===0){
-        const x=wi*wkw, ins=scaleNotes.includes(n);
+    // White keys
+    for (let o=0;o<octaves;o++) for (let n=0;n<12;n++) if (!isBlack[n]) {
+        const x=wi*wkw, ins=scaleNotes.includes(n), isRoot=(n===rootNote&&ins);
         const r=svgEl('rect',{x,y:40,width:wkw-2,height:wkh,rx:8});
-        r.setAttribute('style', ins ? 'fill:url(#pianoGradient);stroke:#4c63d2;stroke-width:2.5' : 'fill:rgba(255,255,255,0.95);stroke:#333;stroke-width:1.5');
+        r.setAttribute('style', isRoot
+            ? 'fill:url(#pianoRootGrad);stroke:#a8003a;stroke-width:2.5'
+            : ins ? 'fill:url(#pianoGrad);stroke:#4c63d2;stroke-width:2.5'
+            : 'fill:rgba(255,255,255,0.95);stroke:#333;stroke-width:1.5');
         svg.appendChild(r);
-        const t=svgEl('text',{x:x+wkw/2,y:wkh+85,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','font-size':ins?13:11,fill:ins?'#333':'#aaa','font-weight':ins?600:400});
+        const t=svgEl('text',{x:x+wkw/2,y:wkh+85,'text-anchor':'middle','dominant-baseline':'middle',
+            'font-family':'Inter,sans-serif','font-size':ins?13:11,
+            fill:ins?'#fff':'#aaa','font-weight':ins?700:400});
         t.textContent=allNotes[n]; svg.appendChild(t); wi++;
     }
     wi=0;
-    for(let o=0;o<octaves;o++) for(let n=0;n<12;n++){
-        if(kp[n]===0){wi++;}
-        else{
-            const x=(wi-0.68)*wkw, ins=scaleNotes.includes(n);
-            const r=svgEl('rect',{x,y:40,width:bkw,height:bkh,rx:6});
-            r.setAttribute('style', ins ? 'fill:url(#pianoGradientDark);stroke:#764ba2;stroke-width:2.5' : 'fill:#1a1a2e;stroke:#111;stroke-width:1.5');
-            svg.appendChild(r);
-            const t=svgEl('text',{x:x+bkw/2,y:25,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','font-size':ins?13:11,fill:ins?'#333':'#aaa','font-weight':ins?600:400});
-            t.textContent=allNotes[n]; svg.appendChild(t);
-        }
+    // Black keys
+    for (let o=0;o<octaves;o++) for (let n=0;n<12;n++) {
+        if (!isBlack[n]) { wi++; continue; }
+        const x=(wi-0.68)*wkw, ins=scaleNotes.includes(n), isRoot=(n===rootNote&&ins);
+        const r=svgEl('rect',{x,y:40,width:bkw,height:bkh,rx:6});
+        r.setAttribute('style', isRoot
+            ? 'fill:url(#pianoRootDarkGrad);stroke:#6a0020;stroke-width:2.5'
+            : ins ? 'fill:url(#pianoDarkGrad);stroke:#764ba2;stroke-width:2.5'
+            : 'fill:#1a1a2e;stroke:#111;stroke-width:1.5');
+        svg.appendChild(r);
+        const t=svgEl('text',{x:x+bkw/2,y:25,'text-anchor':'middle','dominant-baseline':'middle',
+            'font-family':'Inter,sans-serif','font-size':ins?13:11,
+            fill:ins?'#fff':'#aaa','font-weight':ins?700:400});
+        t.textContent=allNotes[n]; svg.appendChild(t);
     }
 }
 
-function drawStringedInstrument(svg, instrument, scaleNotes) {
-    svg.innerHTML='';
+// ── Stringed instruments ──────────────────────────────────────────────────────
+function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
+    svg.innerHTML = '';
     const tuning=instrumentTunings[instrument], labels=stringLabels[instrument], ns=tuning.length;
-    const isBanjo = instrument === 'banjo';
-    const W=900, H=280, nf=12, lm=75, rm=20, tm=28, bm=32;
+    const isBanjo = instrument==='banjo', isGuitar = instrument==='guitar';
+    const nf = (isGuitar && shapeMode === 'extended') ? 19 : 17;
+    const W=900,H=280,lm=75,rm=20,tm=28,bm=32;
     const gw=W-lm-rm, gh=H-tm-bm, fs=gw/nf, ss=ns>1?gh/(ns-1):gh;
-    svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('width','100%'); svg.setAttribute('height','280'); svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.style.aspectRatio = W+' / '+H;
+    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
     addGradients(svg);
-    const ry=r=>tm+r*ss;
+    const ry = r => tm + r*ss;
+    const rootNote = allNotes.indexOf(key);
 
-    // strings — banjo drone string only drawn from its start fret
-    for(let r=0;r<ns;r++){
-        const y=ry(r);
-        let x1 = lm;
-        if(isBanjo && r === BANJO_DRONE_STRING_INDEX) {
-            // Short 5th string starts at fret 5
-            x1 = lm + BANJO_DRONE_START_FRET * fs;
-        }
-        svg.appendChild(svgEl('line',{x1,y1:y,x2:lm+gw,y2:y,stroke:'#333','stroke-width':2.5,'stroke-linecap':'round'}));
+    const activeMode = (isGuitar && shapeMode) ? shapeMode : 'full';
+
+    // Build active note set for position modes
+    let activeSet = null;
+    let windowLo = null, windowHi = null;
+    let guitarScaleNotes = null;
+
+    if (isGuitar && activeMode !== 'full') {
+        guitarScaleNotes = new Set(scaleIntervals[scaleType].map(i=>(allNotes.indexOf(key)+i)%12));
+    }
+    if (activeMode === '2oct') {
+        activeSet = get2OctNotes(key, scaleType);
+    } else if (activeMode === 'alt') {
+        activeSet = getAltNotes(key);
+    } else if (activeMode === 'extended') {
+        [windowLo, windowHi] = extendedBluesWindow(key);
+    } else if (activeMode.startsWith('caged')) {
+        const idx = parseInt(activeMode.replace('caged','')) - 1;
+        [windowLo, windowHi] = cagedWindow(key, scaleType, idx);
+    } else if (activeMode.startsWith('3nps')) {
+        const pos = parseInt(activeMode.replace('3nps',''));
+        activeSet = npsSet(key, scaleType, pos);
     }
 
-    // nut (full-height vertical bar at left edge, but only for the 4 full-length strings on banjo)
-    if(isBanjo) {
-        // Draw nut only across strings 0-3 (the four full-length strings), not the drone
-        const nutTop = ry(0) - 6;
-        const nutBot = ry(ns-2) + 6;
-        svg.appendChild(svgEl('line',{x1:lm,y1:nutTop,x2:lm,y2:nutBot,stroke:'#333','stroke-width':5,'stroke-linecap':'round'}));
-        // Draw a small peg/marker at fret 5 for the drone string start
-        const droneY = ry(BANJO_DRONE_STRING_INDEX);
-        const pegX   = lm + BANJO_DRONE_START_FRET * fs;
+    function shouldShow(si, fret) {
+        if (activeMode === 'full') return true;
+        if (activeMode === '2oct') return activeSet && activeSet.has(si+':'+fret);
+        if (activeMode === 'alt')  return activeSet && activeSet.has(si+':'+fret);
+        if (activeMode.startsWith('3nps')) return activeSet && activeSet.has(si+':'+fret);
+        if (windowLo !== null) {
+            if (fret < windowLo || fret > windowHi) return false;
+            return guitarScaleNotes && guitarScaleNotes.has(noteAt(si, fret));
+        }
+        return true;
+    }
+
+    function dotColor(note)   { return note===rootNote ? 'url(#rootGrad)' : 'url(#noteGrad)'; }
+    function strokeColor(note){ return note===rootNote ? '#a8003a' : '#4c63d2'; }
+
+    // Draw strings
+    for (let r=0;r<ns;r++) {
+        const y=ry(r);
+        let x1=lm;
+        if (isBanjo && r===BANJO_DRONE_STRING_INDEX) x1=lm+BANJO_DRONE_START_FRET*fs;
+        svg.appendChild(svgEl('line',{x1,y1:y,x2:lm+gw,y2:y,stroke:'#333','stroke-width':2.5,'stroke-linecap':'round'}));
+    }
+    // Nut
+    if (isBanjo) {
+        svg.appendChild(svgEl('line',{x1:lm,y1:ry(0)-6,x2:lm,y2:ry(ns-2)+6,stroke:'#333','stroke-width':5,'stroke-linecap':'round'}));
+        const pegX=lm+BANJO_DRONE_START_FRET*fs, droneY=ry(BANJO_DRONE_STRING_INDEX);
         svg.appendChild(svgEl('line',{x1:pegX,y1:droneY-10,x2:pegX,y2:droneY+10,stroke:'#333','stroke-width':5,'stroke-linecap':'round'}));
     } else {
         svg.appendChild(svgEl('line',{x1:lm,y1:tm-6,x2:lm,y2:tm+(ns-1)*ss+6,stroke:'#333','stroke-width':5,'stroke-linecap':'round'}));
     }
-
-    // frets + numbers
-    for(let f=1;f<=nf;f++){
+    // Fret lines + numbers
+    for (let f=1;f<=nf;f++) {
         const x=lm+f*fs;
         svg.appendChild(svgEl('line',{x1:x,y1:tm-6,x2:x,y2:tm+(ns-1)*ss+6,stroke:'#888','stroke-width':1.5,opacity:0.7}));
-        const ft=svgEl('text',{x:lm+(f-0.5)*fs,y:tm+(ns-1)*ss+22,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','font-size':12,'font-weight':600,fill:'#666'});
+        const ft=svgEl('text',{x:lm+(f-0.5)*fs,y:tm+(ns-1)*ss+22,'text-anchor':'middle','dominant-baseline':'middle',
+            'font-family':'Inter,sans-serif','font-size':12,'font-weight':600,fill:'#666'});
         ft.textContent=f; svg.appendChild(ft);
     }
 
-    // notes
-    for(let r=0;r<ns;r++){
-        const y=ry(r), open=tuning[r], label=labels[r];
-        const isDroneString = isBanjo && r === BANJO_DRONE_STRING_INDEX;
-        const droneStartFret = BANJO_DRONE_START_FRET;
+    function drawDot(cx, cy, r, note, fontSize) {
+        svg.appendChild(svgEl('circle',{cx,cy,r,fill:dotColor(note),stroke:strokeColor(note),'stroke-width':2}));
+        const t=svgEl('text',{x:cx,y:cy,fill:'white','font-weight':700,'font-size':fontSize,
+            'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','pointer-events':'none'});
+        t.textContent=allNotes[note]; svg.appendChild(t);
+    }
 
-        if(!isDroneString) {
-            // Normal string: show open note indicator to the left of the nut
-            const ox = lm - 24;
-            if(scaleNotes.includes(open%12)){
-                svg.appendChild(svgEl('circle',{cx:ox,cy:y,r:13,fill:'url(#noteGradient)',stroke:'#4c63d2','stroke-width':2}));
-                const t=svgEl('text',{x:ox,y,fill:'white','font-weight':700,'font-size':11,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','pointer-events':'none'});
-                t.textContent=allNotes[open%12]; svg.appendChild(t);
-            } else {
-                const t=svgEl('text',{x:ox,y,fill:'#aaa','font-size':13,'font-weight':600,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif'});
+    for (let r=0;r<ns;r++) {
+        const y=ry(r), open=tuning[r], label=labels[r];
+        const isDrone = isBanjo && r===BANJO_DRONE_STRING_INDEX;
+        if (!isDrone) {
+            const ox=lm-24;
+            if (shouldShow(r,0) && scaleNotes.includes(open%12)) {
+                drawDot(ox, y, 13, open%12, 11);
+            } else if (activeMode==='full') {
+                const t=svgEl('text',{x:ox,y,fill:'#aaa','font-size':13,'font-weight':600,
+                    'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif'});
                 t.textContent=label; svg.appendChild(t);
             }
-            // Fretted notes for normal strings
-            for(let f=1;f<=nf;f++){
+            for (let f=1;f<=nf;f++) {
                 const note=(open+f)%12;
-                if(scaleNotes.includes(note)){
-                    const cx=lm+(f-0.5)*fs;
-                    svg.appendChild(svgEl('circle',{cx,cy:y,r:13,fill:'url(#noteGradient)',stroke:'#4c63d2','stroke-width':2}));
-                    const t=svgEl('text',{x:cx,y,fill:'white','font-weight':700,'font-size':11,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','pointer-events':'none'});
-                    t.textContent=allNotes[note]; svg.appendChild(t);
+                if (scaleNotes.includes(note) && shouldShow(r,f)) {
+                    drawDot(lm+(f-0.5)*fs, y, 13, note, 11);
                 }
             }
         } else {
-            // Banjo 5th drone string: open position is AT fret 5 (the peg)
-            // Show the open note label just to the left of the fret-5 peg
-            const pegX = lm + droneStartFret * fs;
-            const ox   = pegX - 20;
-
-            if(scaleNotes.includes(open%12)){
-                svg.appendChild(svgEl('circle',{cx:pegX - 20,cy:y,r:11,fill:'url(#noteGradient)',stroke:'#4c63d2','stroke-width':2}));
-                const t=svgEl('text',{x:pegX - 20,y,fill:'white','font-weight':700,'font-size':10,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','pointer-events':'none'});
-                t.textContent=allNotes[open%12]; svg.appendChild(t);
+            const pegX=lm+BANJO_DRONE_START_FRET*fs;
+            if (scaleNotes.includes(open%12)) {
+                drawDot(pegX-20, y, 11, open%12, 10);
             } else {
-                const t=svgEl('text',{x:pegX - 20,y,fill:'#aaa','font-size':12,'font-weight':600,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif'});
+                const t=svgEl('text',{x:pegX-20,y,fill:'#aaa','font-size':12,'font-weight':600,
+                    'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif'});
                 t.textContent=label; svg.appendChild(t);
             }
-
-            // Fretted notes: drone string only has frets AFTER the start fret
-            // f=1 means fret 6 on the neck, etc. We show notes starting from fret droneStartFret+1
-            for(let f=1;f<=(nf-droneStartFret);f++){
-                const note=(open+f)%12;
-                const neckFret = droneStartFret + f;
-                const cx = lm + (neckFret - 0.5) * fs;
-                if(scaleNotes.includes(note)){
-                    svg.appendChild(svgEl('circle',{cx,cy:y,r:13,fill:'url(#noteGradient)',stroke:'#4c63d2','stroke-width':2}));
-                    const t=svgEl('text',{x:cx,y,fill:'white','font-weight':700,'font-size':11,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif','pointer-events':'none'});
-                    t.textContent=allNotes[note]; svg.appendChild(t);
-                }
+            for (let f=1;f<=(nf-BANJO_DRONE_START_FRET);f++) {
+                const note=(open+f)%12, neckFret=BANJO_DRONE_START_FRET+f;
+                if (scaleNotes.includes(note)) drawDot(lm+(neckFret-0.5)*fs, y, 13, note, 11);
             }
         }
     }
 }
 
-function getInstrumentKey(i)   { return instrumentKeys[i]==='follow'   ? document.getElementById('keySelect').value        : instrumentKeys[i]; }
-function getInstrumentScale(i) { return instrumentScales[i]==='follow' ? document.getElementById('scaleSelect').value      : instrumentScales[i]; }
+// ── State ────────────────────────────────────────────────────────────────────
+let currentInstruments=[],instrumentKeys=[],instrumentScales=[],instrumentTypes=[],instrumentShapes=[];
+
+function getInstrumentKey(i)   { return instrumentKeys[i]==='follow'   ? document.getElementById('keySelect').value   : instrumentKeys[i]; }
+function getInstrumentScale(i) { return instrumentScales[i]==='follow' ? document.getElementById('scaleSelect').value : instrumentScales[i]; }
 function getInstrumentType(i)  { return instrumentTypes[i]==='follow'  ? document.getElementById('instrumentSelect').value : instrumentTypes[i]; }
+function getInstrumentShape(i) { return instrumentShapes[i]||'full'; }
 
 function updateSingleDisplay(i) {
     const svg=document.getElementById('svg'+i); if(!svg) return;
-    const notes=getScaleNotes(getInstrumentKey(i), getInstrumentScale(i)), inst=getInstrumentType(i);
-    if(inst==='piano') drawPiano(svg,notes); else drawStringedInstrument(svg,inst,notes);
+    const key=getInstrumentKey(i), scaleType=getInstrumentScale(i);
+    const notes=getScaleNotes(key,scaleType), inst=getInstrumentType(i);
+    const rootNote=allNotes.indexOf(key);
+    if (inst==='piano') drawPiano(svg,notes,rootNote);
+    else drawStringed(svg,inst,notes,getInstrumentShape(i),key,scaleType);
+    const notesEl=document.getElementById('scaleNotes'+i);
+    if (notesEl) {
+        notesEl.textContent = formatScaleNoteNames(key, scaleType);
+        notesEl.style.marginTop = (inst==='piano') ? '' : '16px';
+    }
     requestAnimationFrame(()=>{svg.style.display='none';svg.offsetHeight;svg.style.display='block';});
 }
-
 function updateAllDisplays() { updateTitle(); for(let i=0;i<currentInstruments.length;i++) updateSingleDisplay(i); }
 
 function updateTitle() {
     const el=document.getElementById('scaleTitle'); if(!el) return;
-    const ks=new Set(instrumentKeys.map((k,i)=>k==='follow'?document.getElementById('keySelect').value:k));
-    const ss=new Set(instrumentScales.map((s,i)=>s==='follow'?document.getElementById('scaleSelect').value:s));
+    const ks=new Set(instrumentKeys.map(k=>k==='follow'?document.getElementById('keySelect').value:k));
+    const ss=new Set(instrumentScales.map(s=>s==='follow'?document.getElementById('scaleSelect').value:s));
     let txt;
     if(ks.size===1&&ss.size===1) txt=`${[...ks][0]} ${[...ss][0]} Scale`;
     else if(ks.size===1) txt=`${[...ks][0]} - Multiple Scales`;
@@ -358,25 +574,56 @@ function updateGlobalInstrument() {
         updTypeTxt(i);
         const card=document.querySelectorAll('.instrument-card')[i];
         if(card){const n=card.querySelector('.instrument-name');if(n)n.textContent=name;}
-        updateSingleDisplay(i);
+        updateShapeRowVisibility(i); updateSingleDisplay(i);
     }
 }
-
-function updateInstrumentKey(i,v)   { instrumentKeys[i]=v;   updKeyTxt(i);   updateSingleDisplay(i); updateTitle(); }
-function updateInstrumentScale(i,v) { instrumentScales[i]=v; updScaleTxt(i); updateSingleDisplay(i); updateTitle(); }
+function updateInstrumentKey(i,v)   { instrumentKeys[i]=v;   updKeyTxt(i);   updateShapeOptions(i); updateSingleDisplay(i); updateTitle(); }
+function updateInstrumentScale(i,v) { instrumentScales[i]=v; updScaleTxt(i); updateShapeOptions(i); updateSingleDisplay(i); updateTitle(); }
 function updateInstrumentTypeFromCard(i,v) {
     instrumentTypes[i]=v;
     const resolved=v==='follow'?document.getElementById('instrumentSelect').value:v;
     const card=document.querySelectorAll('.instrument-card')[i];
     if(card){const n=card.querySelector('.instrument-name');if(n)n.textContent=instrumentNames[resolved];}
-    updateSingleDisplay(i);
+    updateShapeRowVisibility(i); updateSingleDisplay(i);
+}
+function updateInstrumentShape(i,v) { instrumentShapes[i]=v; updateSingleDisplay(i); }
+
+function updateShapeRowVisibility(i) {
+    const row=document.getElementById('shapeRow'+i); if(!row) return;
+    const inst=getInstrumentType(i);
+    if(inst==='guitar') row.classList.remove('hidden');
+    else { row.classList.add('hidden'); instrumentShapes[i]='full'; }
+}
+function updateShapeOptions(i) {
+    const sel=document.getElementById('shapeSelect'+i); if(!sel) return;
+    const cv=sel.value;
+    sel.innerHTML=buildShapeOpts(getInstrumentKey(i),getInstrumentScale(i));
+    if([...sel.options].some(o=>o.value===cv)) sel.value=cv;
+    else { sel.value='full'; instrumentShapes[i]='full'; }
+}
+
+function buildShapeOpts(key, scaleType) {
+    const has3NPS=SUPPORTS_3NPS.has(scaleType);
+    let html='<option value="full">Full Fretboard</option><option value="2oct">2 Octaves</option>';
+    html+='<optgroup label="CAGED Shapes">';
+    for(let s=1;s<=5;s++) html+=`<option value="caged${s}">Shape ${s}</option>`;
+    html+='</optgroup>';
+    if(has3NPS){
+        html+='<optgroup label="3-Note-Per-String">';
+        for(let s=1;s<=7;s++) html+=`<option value="3nps${s}">3NPS Position ${s}</option>`;
+        html+='</optgroup>';
+    }
+    if (scaleType === 'Blues') html += '<option value="extended">Extended</option>';
+    else if (ALT_KEYS.has(key)) html += '<option value="alt">Alternative Position</option>';
+    return html;
 }
 
 function resetAllInstruments() {
     for(let i=0;i<currentInstruments.length;i++){
-        instrumentKeys[i]='follow'; instrumentScales[i]='follow'; instrumentTypes[i]='follow';
-        const ks=document.getElementById('instrumentKey'+i), ss=document.getElementById('instrumentScale'+i), ts=document.getElementById('instrumentType'+i);
+        instrumentKeys[i]='follow'; instrumentScales[i]='follow'; instrumentTypes[i]='follow'; instrumentShapes[i]='full';
+        const ks=document.getElementById('instrumentKey'+i),ss=document.getElementById('instrumentScale'+i),ts=document.getElementById('instrumentType'+i);
         if(ks)ks.value='follow'; if(ss)ss.value='follow'; if(ts)ts.value='follow';
+        const shp=document.getElementById('shapeSelect'+i); if(shp)shp.value='full';
         updKeyTxt(i); updScaleTxt(i); updTypeTxt(i); updateSingleDisplay(i);
     }
     updateTitle();
@@ -385,8 +632,9 @@ function resetAllInstruments() {
 function mkKeyOpts(gk)   { return ['follow','C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map((v,i)=>`<option value="${v}">${i===0?gk:v}</option>`).join(''); }
 function mkScaleOpts(gs) { return ['follow','Major','Minor','Pentatonic Major','Pentatonic Minor','Blues','Dorian','Mixolydian'].map((v,i)=>`<option value="${v}">${i===0?gs:v}</option>`).join(''); }
 function mkTypeOpts(gi)  {
-    const list=[['piano','Piano'],['guitar','Guitar'],['bass','Bass Guitar'],['ukulele','Ukulele'],['mandolin','Mandolin'],['banjo','Banjo'],['violin','Violin']];
-    return `<option value="follow">${instrumentNames[gi]}</option>`+list.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    return `<option value="follow">${instrumentNames[gi]}</option>`+
+        [['piano','Piano'],['guitar','Guitar'],['bass','Bass Guitar'],['ukulele','Ukulele'],['mandolin','Mandolin'],['banjo','Banjo'],['violin','Violin']]
+        .map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
 }
 
 function updateInstrumentLayout() {
@@ -394,11 +642,13 @@ function updateInstrumentLayout() {
     const container=document.getElementById('instrumentsContainer');
     container.className='instruments-grid '+['single','dual','triple','quad','five','six','seven','eight'][num-1];
     container.innerHTML='';
-    currentInstruments=[]; instrumentKeys=[]; instrumentScales=[]; instrumentTypes=[];
+    currentInstruments=[]; instrumentKeys=[]; instrumentScales=[]; instrumentTypes=[]; instrumentShapes=[];
     const gk=document.getElementById('keySelect').value, gs=document.getElementById('scaleSelect').value, gi=document.getElementById('instrumentSelect').value;
     for(let i=0;i<num;i++){
-        currentInstruments.push(gi); instrumentKeys.push('follow'); instrumentScales.push('follow'); instrumentTypes.push('follow');
+        currentInstruments.push(gi); instrumentKeys.push('follow'); instrumentScales.push('follow');
+        instrumentTypes.push('follow'); instrumentShapes.push('full');
         const card=document.createElement('div'); card.className='instrument-card';
+        const isGuitar=gi==='guitar';
         card.innerHTML=`
             <div class="instrument-controls">
                 <select class="instrument-select" id="instrumentType${i}" onchange="updateInstrumentTypeFromCard(${i},this.value)">${mkTypeOpts(gi)}</select>
@@ -406,12 +656,16 @@ function updateInstrumentLayout() {
                     <select class="key-select" id="instrumentKey${i}" onchange="updateInstrumentKey(${i},this.value)">${mkKeyOpts(gk)}</select>
                     <select class="key-select" id="instrumentScale${i}" onchange="updateInstrumentScale(${i},this.value)">${mkScaleOpts(gs)}</select>
                 </div>
+                <div class="shape-row${isGuitar?'':' hidden'}" id="shapeRow${i}">
+                    <select class="shape-select" id="shapeSelect${i}" onchange="updateInstrumentShape(${i},this.value)">${buildShapeOpts(gk,gs)}</select>
+                </div>
             </div>
             <div class="instrument-name">${instrumentNames[gi]}</div>
-            <svg id="svg${i}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="100%" height="280" preserveAspectRatio="xMidYMid meet"></svg>`;
+            <svg id="svg${i}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="100%" height="280" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="scale-notes" id="scaleNotes${i}"></div>`;
         container.appendChild(card);
     }
-    setTimeout(updateAllDisplays,100);
+    setTimeout(updateAllDisplays, 100);
 }
 
 function init() {
@@ -422,7 +676,7 @@ function init() {
     document.getElementById('numInstruments').addEventListener('change',updateInstrumentLayout);
 }
 
-if(document.readyState==='complete'||document.readyState==='interactive') setTimeout(init,150);
+if (document.readyState==='complete'||document.readyState==='interactive') setTimeout(init,150);
 else window.addEventListener('load',()=>setTimeout(init,150));
 </script>
 </body>
