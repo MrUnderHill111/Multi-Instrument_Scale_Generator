@@ -145,7 +145,7 @@ const stringLabels = {
     violin:   ['E','A','D','G']
 };
 const BANJO_DRONE_STRING_INDEX = 4;
-const BANJO_DRONE_START_FRET   = 5;
+const BANJO_DRONE_START_FRET   = 4;
 const instrumentNames = {
     piano:'Piano', guitar:'Guitar', bass:'Bass Guitar',
     ukulele:'Ukulele', mandolin:'Mandolin', banjo:'Banjo', violin:'Violin'
@@ -168,6 +168,78 @@ function rootFretLowE(key) {
 }
 
 function noteAt(si, fret) { return (STR_OPEN_ABS[si] + fret) % 12; }
+
+// Generic versions of the above, usable with ANY instrument's tuning array
+// (not just guitar). rootFretOnLowest finds the root's fret on whichever
+// string is lowest-pitched for that instrument; buildOpenFromLowest computes
+// each string's real semitone distance above that lowest string, walking the
+// tuning ascending (valid for guitar, bass, mandolin, violin - all tuned in
+// consistently ascending intervals with no reentrant strings).
+function rootFretOnLowest(key, tuning) {
+    const lowOpen = tuning[tuning.length - 1];
+    const f = (allNotes.indexOf(key) - lowOpen + 12) % 12;
+    return f === 0 ? 12 : f;
+}
+function buildOpenFromLowest(tuning) {
+    const ns = tuning.length, result = new Array(ns);
+    result[ns - 1] = 0;
+    for (let i = ns - 2; i >= 0; i--) {
+        let step = ((tuning[i] - tuning[i + 1]) % 12 + 12) % 12;
+        if (step === 0) step = 12;
+        result[i] = result[i + 1] + step;
+    }
+    return result;
+}
+// Even, simple per-string note distribution for a 2-octave run on instruments
+// without a hand-verified cap table (guitar keeps its own verified table).
+// Extra notes (when totalSteps doesn't divide evenly) go to the middle
+// strings first, mirroring guitar's own heavier-in-the-middle pattern.
+function defaultTwoOctCaps(ns, totalSteps) {
+    const base = Math.floor(totalSteps / ns), rem = totalSteps - base * ns;
+    const caps = new Array(ns).fill(base);
+    const mid = Math.floor(ns / 2);
+    let given = 0, offset = 0;
+    while (given < rem) {
+        const up = mid + offset, down = mid - 1 - offset;
+        if (up < ns && given < rem)   { caps[up]++; given++; }
+        if (down >= 0 && given < rem) { caps[down]++; given++; }
+        offset++;
+    }
+    return caps;
+}
+// Which guitar-style position modes genuinely translate to each instrument's
+// real tuning. CAGED is tied to 6-string open-chord shapes (guitar only).
+// 3NPS needs consistent perfect-4th spacing between strings (guitar, bass -
+// mandolin/violin are tuned in 5ths, too wide to translate). 2-octave runs
+// only need a consistent ascending tuning, so they work on all four.
+//
+// Ukulele gets its own verified system: CAGFD, the real published movable
+// 5-position system for GCEA tuning (sourced from ukuleletricks.com's C
+// major scale lesson series + myukuleles.com's CAGFD chord-shape diagrams,
+// cross-checked against each other). Minor reuses the same windows via the
+// relative major key (sourced from ukuleletricks.com's own relative-minor
+// note plus the Ukulele Underground Forum's explicit statement that the
+// CAGFD patterns are reused directly for minor scales). No other scale
+// type is covered yet - not verified, not guessed.
+//
+// Banjo gets one verified movable position: "gpos", sourced from Sherry
+// Chapman ("Texasbanjo")'s published Bluegrass Music Theory 101 lesson on
+// Banjo Hangout. Major only - that's all that's verified. Two sibling
+// patterns (D-position, C-position) from the same lesson were checked and
+// found to contain an internal arithmetic error, so they're deliberately
+// left out rather than "corrected" by guesswork.
+const SHAPE_MODES = {
+    guitar:   { caged: true,  nps: true,  extended: true,  alt: true },
+    bass:     { caged: false, nps: true,  extended: false, alt: false },
+    mandolin: { caged: false, nps: false, extended: false, alt: false },
+    violin:   { caged: false, nps: false, extended: false, alt: false },
+    ukulele:  { cagfd: true },
+    banjo:    { gpos: true },
+};
+function ordinal(n) {
+    const s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 
 function getScaleNotes(key, scale) {
     const root = allNotes.indexOf(key);
@@ -197,6 +269,27 @@ function formatScaleNoteNames(key, scale) {
 const CAGED_MAJOR   = [[-1,2],[2,6],[4,7],[-6,-2],[-4,0]];
 const CAGED_MINOR   = [[-1,3],[2,5],[4,8],[-5,-2],[-3,1]];
 const CAGED_BLUES   = [[0,3],[2,6],[-8,-4],[-5,-1],[-3,1]];
+// Pentatonic Minor was previously (incorrectly) sharing CAGED_DEFAULT with
+// Dorian/Mixolydian/Pentatonic Major. Found and fixed by direct user
+// correction: confirmed wrong on F# (Shape 1 missing fret 5, Shape 3 and 4
+// off by one fret each). Cross-checking the corrected values revealed this
+// table is just CAGED_MINOR (the already-verified 7-note minor table) with
+// Shape 1's low edge trimmed from rf-1 to rf+0 - removing the one fret
+// column that, in the 7-note scale, only ever carries the natural-minor
+// 2nd/6th-degree notes that pentatonic minor doesn't have. Verified by
+// script across all 12 keys: full 5-note coverage in every shape, and the
+// Shape 1 narrowing never cuts off a note that's actually part of the
+// pentatonic minor scale.
+const CAGED_PENT_MINOR = [[0,3],[2,5],[4,8],[-5,-2],[-3,1]];
+// Verified directly against real fret positions (per-key, per-scale-type
+// confirmed): Major and Minor each have their own box widths (minor's
+// natural-minor interval pattern needs different spacing than major's),
+// Blues has its own, Pentatonic Minor has its own (above). Dorian,
+// Mixolydian, and Pentatonic Major still share this table - that claim of
+// "already correct" has NOT been independently re-verified for Pentatonic
+// Major specifically (Pentatonic Minor's identical claim turned out to be
+// false), so treat Pentatonic Major and the modes as unconfirmed until
+// checked.
 const CAGED_DEFAULT = [[-1,2],[2,5],[4,7],[-6,-3],[-3,0]];
 
 function cagedWindow(key, scaleType, idx) {
@@ -204,6 +297,7 @@ function cagedWindow(key, scaleType, idx) {
     const table = scaleType === 'Major' ? CAGED_MAJOR
                 : scaleType === 'Minor' ? CAGED_MINOR
                 : scaleType === 'Blues' ? CAGED_BLUES
+                : scaleType === 'Pentatonic Minor' ? CAGED_PENT_MINOR
                 : CAGED_DEFAULT;
     let lo = rf + table[idx][0], hi = rf + table[idx][1];
     while (lo < 0)  { lo += 12; hi += 12; }
@@ -220,26 +314,110 @@ function extendedBluesWindow(key) {
     return [lo, hi];
 }
 
+// ── CAGFD shapes (ukulele) ────────────────────────────────────────────────────
+// Real published movable 5-position system for ukulele (GCEA tuning),
+// CAGED's direct ukulele analog. Sourced from ukuleletricks.com's published
+// 5-position C major scale lesson series (explicit fret-span text per
+// position), cross-checked against myukuleles.com's independently-published
+// CAGFD chord-shape fret diagrams - both agree exactly.
+//   Position 1: frets 1-3, root on the open C-string
+//   Position 2: frets 2-5, root on A-string fret 3
+//   Position 3: frets 5-8, root on E-string fret 8
+//   Position 4: frets 7-10, root on E-string fret 8
+//   Position 5: frets 9-13, root on C-string fret 12
+// Offsets below are relative to rootFretOnC_uke(key) (where the key's root
+// falls on the C-string). Position 1's low edge is extended from the
+// published "1" down to "0" to include the open-string root the source
+// itself describes - a direct consequence of the source's own stated fact,
+// not an invented number. Verified by script across all 12 keys: the root
+// note lands on the correct anchor string within each window every time.
+const CAGFD_MAJOR = [[0,3],[2,5],[5,8],[7,10],[9,13]];
+const CAGFD_LETTERS = ['C','A','G','F','D'];
+const UKULELE_C_STRING_IDX = 2; // si=2 is the C-string in this app's ukulele tuning order [A,E,C,G]
+
+function rootFretOnC_uke(key) {
+    return (allNotes.indexOf(key) - instrumentTunings.ukulele[UKULELE_C_STRING_IDX] + 12) % 12;
+}
+
+// Minor scales reuse these exact same Major windows, anchored to the minor
+// key's RELATIVE MAJOR (root + 3 semitones) instead of the minor key itself.
+// This isn't a derived shortcut - it's literally what two independent real
+// sources say to do: ukuleletricks.com states outright that Position 5 of C
+// major "is also known as A natural minor - the relative minor key to C
+// major", and the Ukulele Underground Forum independently states "Use the
+// movable scale for your minor scales also... The root will correspond to
+// the tonic of the key you apply that pattern to." Verified by script: for
+// all 12 minor keys, every note of the natural minor scale (and the tonic
+// itself) falls inside the reused windows.
+function cagfdWindow(key, scaleType, idx) {
+    const refKey = scaleType === 'Minor' ? allNotes[(allNotes.indexOf(key) + 3) % 12] : key;
+    const rf = rootFretOnC_uke(refKey);
+    let lo = rf + CAGFD_MAJOR[idx][0], hi = rf + CAGFD_MAJOR[idx][1];
+    while (lo > 12) { lo -= 12; hi -= 12; }
+    return [lo, hi];
+}
+
+// ── G-position movable scale (banjo) ──────────────────────────────────────────
+// Sourced from Sherry Chapman ("Texasbanjo"), Bluegrass Music Theory 101
+// (published lesson, Banjo Hangout). Literal pattern as written, in the key
+// of G: string3-open(G), string4-fret7(A), string2-open(B), string3-fret5(C),
+// string1-open(D), string2-fret5(E), string1-fret4(F#), string5-open(G).
+// Verified note-by-note against the G major scale - exact match, zero
+// mismatches. Verified again by uniform-fret-shift transposition tested
+// against all 12 keys - exact match for 11/12 keys; F# needs an 18th fret,
+// handled by extending the board to 18 frets for this mode only (same
+// approach already used by guitar's blues "Extended" mode, which extends to
+// 19). si indices follow this app's existing banjo tuning array order
+// [D,B,G,D,G]: si0=string1, si1=string2, si2=string3, si3=string4,
+// si4=string5 (the short drone string).
+//
+// Two sibling patterns from the same lesson (D-position, C-position) were
+// checked the same way and each contains exactly one note that doesn't
+// match the expected scale (both on the 5th string, both off by what looks
+// like a transcription error in the original). They are deliberately not
+// included - silently "fixing" someone else's likely typo and presenting it
+// as verified data would be the same kind of guessing this project doesn't do.
+const BANJO_G_POSITION = [
+    {si:2, fret:0}, {si:3, fret:7}, {si:1, fret:0}, {si:2, fret:5},
+    {si:0, fret:0}, {si:1, fret:5}, {si:0, fret:4}, {si:4, fret:0}
+];
+const BANJO_G_REF_SI = 2; // string3, open = G - the pattern's transposition reference
+
+function banjoGPositionSet(key, scaleType) {
+    const openG = instrumentTunings.banjo[BANJO_G_REF_SI];
+    // Minor reuses the exact same pattern, anchored to the minor key's
+    // RELATIVE MAJOR (root + 3 semitones). Natural minor shares identical
+    // fretboard notes with its relative major - this is universal music
+    // theory true on any instrument, the same legitimate technique already
+    // verified and shipped for ukulele's CAGFD Minor. Not new guessing.
+    const refKey = scaleType === 'Minor' ? allNotes[(allNotes.indexOf(key) + 3) % 12] : key;
+    const T = (allNotes.indexOf(refKey) - openG + 12) % 12;
+    const result = new Set();
+    BANJO_G_POSITION.forEach(n => result.add(n.si + ':' + (n.fret + T)));
+    return result;
+}
+
 // ── 3NPS ─────────────────────────────────────────────────────────────────────
 // Precomputed (string,fret) set, exactly up to 3 notes per string, scanning upward
 // from the anchor fret. This guarantees no string ever shows more than 3 dots,
 // which an open-ended fret-window check cannot guarantee (adjacent strings tuned
 // a major 3rd apart, e.g. low E to B, can pack 4 scale tones into a 6-fret span).
-function npsSet(key, scaleType, pos) {
+function npsSet(key, scaleType, pos, tuning) {
     const ivs = scaleIntervals[scaleType];
     if (!ivs) return null;
     const root = allNotes.indexOf(key);
     const sn = new Set(ivs.map(i => (root+i)%12));
-    const rf = rootFretLowE(key);
+    const rf = rootFretOnLowest(key, tuning);
+    const ns = tuning.length;
     const degree = (pos - 1) % ivs.length;
     let anchor = rf + ivs[degree];
     while (anchor > 17) anchor -= 12;
     while (anchor < 1)  anchor += 12;
     const result = new Set();
-    for (const si of [5,4,3,2,1,0]) {
+    for (let si = ns - 1; si >= 0; si--) {
         let count = 0;
         for (let f = anchor; f <= 17 && count < 3; f++) {
-            if (sn.has(noteAt(si, f))) { result.add(si+':'+f); count++; }
+            if (sn.has((tuning[si] + f) % 12)) { result.add(si+':'+f); count++; }
         }
     }
     return result;
@@ -283,22 +461,23 @@ const TWO_OCT_MAX = {
     "Mixolydian":     {5:2,4:3,3:3,2:3,1:2,0:2},
 };
 
-function get2OctWalk(key, scaleType) {
+function get2OctWalk(key, scaleType, tuning, capTable) {
     const ivs = scaleIntervals[scaleType];
     if (!ivs) return new Set();
-    const root = allNotes.indexOf(key);
-    const rf   = rootFretLowE(key);
+    const ns = tuning.length;
+    const rf = rootFretOnLowest(key, tuning);
+    const openFromLowest = buildOpenFromLowest(tuning);
     const seq  = [...ivs,...ivs.map(i=>i+12),...ivs.map(i=>i+24),ivs[0]+36];
-    const rootAbs = STR_OPEN_FROM_LOWE[5] + rf;
-    const mm  = TWO_OCT_MAX[scaleType] || TWO_OCT_MAX["Major"];
+    const totalSteps = ivs.length*2+1;
+    const mm  = capTable || defaultTwoOctCaps(ns, totalSteps);
     const result = new Set();
     let ni = 0;
-    for (let si = 5; si >= 0; si--) {
-        const so = STR_OPEN_FROM_LOWE[si];
+    for (let si = ns-1; si >= 0; si--) {
+        const so = openFromLowest[si];
         let firstFret = null, cnt = 0;
         const maxN = mm[si] || 2;
         while (ni < seq.length) {
-            const fret = (rootAbs + seq[ni]) - so;
+            const fret = (rf + seq[ni]) - so;
             if (fret < 1)  { ni++; continue; }
             if (fret > 17) break;
             if (firstFret === null) firstFret = fret;
@@ -311,9 +490,40 @@ function get2OctWalk(key, scaleType) {
     return result;
 }
 
-function get2OctNotes(key, scaleType) {
-    if (scaleType === 'Blues') return get2OctBlues(key);
-    return get2OctWalk(key, scaleType);
+// Verified against real published violin fingering (G major: G string
+// open-A-B-C, D string open-E-F#-G, A string open-B-C-D, E string
+// open-F#-G - matches multiple independent sources exactly). Because
+// adjacent strings are a perfect 5th apart, the SAME finger pattern
+// mechanically repeats on each string at the same starting fret - this
+// isn't a per-key guess, it's a forced consequence of the tuning interval
+// matching the scale's perfect-5th degree. Used for mandolin and violin.
+function get2OctFifths(key, scaleType, tuning) {
+    const ivs = scaleIntervals[scaleType];
+    if (!ivs) return new Set();
+    const ns = tuning.length;
+    const startFret = (allNotes.indexOf(key) - tuning[ns-1] + 12) % 12;
+    const totalSteps = ivs.length*2 + 1;
+    const seq = [];
+    for (let oct=0; seq.length < totalSteps; oct++) for (const iv of ivs) { seq.push(iv+oct*12); if (seq.length>=totalSteps) break; }
+    const result = new Set();
+    let si = ns - 1, base = 0;
+    for (let n = 0; n < totalSteps; n++) {
+        let fret = startFret + (seq[n] - base);
+        while (fret >= 7 && si > 0) { si--; base += 7; fret = startFret + (seq[n] - base); }
+        result.add(si + ':' + fret);
+    }
+    return result;
+}
+
+function get2OctNotes(key, scaleType, instrument, tuning) {
+    if (instrument === 'guitar') {
+        if (scaleType === 'Blues') return get2OctBlues(key);
+        return get2OctWalk(key, scaleType, tuning, TWO_OCT_MAX[scaleType] || TWO_OCT_MAX["Major"]);
+    }
+    if (instrument === 'mandolin' || instrument === 'violin') {
+        return get2OctFifths(key, scaleType, tuning);
+    }
+    return get2OctWalk(key, scaleType, tuning, null);
 }
 
 // ── Alt position (guitar, specific keys, major-shape only) ───────────────────
@@ -409,7 +619,10 @@ function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
     svg.innerHTML = '';
     const tuning=instrumentTunings[instrument], labels=stringLabels[instrument], ns=tuning.length;
     const isBanjo = instrument==='banjo', isGuitar = instrument==='guitar';
-    const nf = (isGuitar && shapeMode === 'extended') ? 19 : 17;
+    const shapeCaps = SHAPE_MODES[instrument] || null;
+    const nf = (isGuitar && shapeMode === 'extended') ? 19
+             : (isBanjo && shapeMode === 'gpos') ? 18
+             : 17;
     const W=900,H=280,lm=75,rm=20,tm=28,bm=32;
     const gw=W-lm-rm, gh=H-tm-bm, fs=gw/nf, ss=ns>1?gh/(ns-1):gh;
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
@@ -419,7 +632,7 @@ function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
     const ry = r => tm + r*ss;
     const rootNote = allNotes.indexOf(key);
 
-    const activeMode = (isGuitar && shapeMode) ? shapeMode : 'full';
+    const activeMode = (shapeCaps && shapeMode) ? shapeMode : 'full';
 
     // Build active note set for position modes
     let activeSet = null;
@@ -430,7 +643,7 @@ function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
         guitarScaleNotes = new Set(scaleIntervals[scaleType].map(i=>(allNotes.indexOf(key)+i)%12));
     }
     if (activeMode === '2oct') {
-        activeSet = get2OctNotes(key, scaleType);
+        activeSet = get2OctNotes(key, scaleType, instrument, tuning);
     } else if (activeMode === 'alt') {
         activeSet = getAltNotes(key);
     } else if (activeMode === 'extended') {
@@ -438,19 +651,29 @@ function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
     } else if (activeMode.startsWith('caged')) {
         const idx = parseInt(activeMode.replace('caged','')) - 1;
         [windowLo, windowHi] = cagedWindow(key, scaleType, idx);
+    } else if (activeMode.startsWith('cagfd')) {
+        const idx = parseInt(activeMode.replace('cagfd','')) - 1;
+        [windowLo, windowHi] = cagfdWindow(key, scaleType, idx);
+    } else if (activeMode === 'gpos') {
+        activeSet = banjoGPositionSet(key, scaleType);
     } else if (activeMode.startsWith('3nps')) {
         const pos = parseInt(activeMode.replace('3nps',''));
-        activeSet = npsSet(key, scaleType, pos);
+        activeSet = npsSet(key, scaleType, pos, tuning);
     }
 
     function shouldShow(si, fret) {
         if (activeMode === 'full') return true;
         if (activeMode === '2oct') return activeSet && activeSet.has(si+':'+fret);
         if (activeMode === 'alt')  return activeSet && activeSet.has(si+':'+fret);
+        if (activeMode === 'gpos') return activeSet && activeSet.has(si+':'+fret);
         if (activeMode.startsWith('3nps')) return activeSet && activeSet.has(si+':'+fret);
         if (windowLo !== null) {
             if (fret < windowLo || fret > windowHi) return false;
-            return guitarScaleNotes && guitarScaleNotes.has(noteAt(si, fret));
+            if (isGuitar) return guitarScaleNotes && guitarScaleNotes.has(noteAt(si, fret));
+            // Generic version for any other windowed instrument (ukulele CAGFD):
+            // uses this instrument's actual tuning array, not guitar's hardcoded
+            // open-string notes.
+            return scaleNotes.includes((tuning[si] + fret) % 12);
         }
         return true;
     }
@@ -509,16 +732,16 @@ function drawStringed(svg, instrument, scaleNotes, shapeMode, key, scaleType) {
             }
         } else {
             const pegX=lm+BANJO_DRONE_START_FRET*fs;
-            if (scaleNotes.includes(open%12)) {
+            if (shouldShow(r,0) && scaleNotes.includes(open%12)) {
                 drawDot(pegX-20, y, 11, open%12, 10);
-            } else {
+            } else if (activeMode==='full') {
                 const t=svgEl('text',{x:pegX-20,y,fill:'#aaa','font-size':12,'font-weight':600,
                     'text-anchor':'middle','dominant-baseline':'middle','font-family':'Inter,sans-serif'});
                 t.textContent=label; svg.appendChild(t);
             }
             for (let f=1;f<=(nf-BANJO_DRONE_START_FRET);f++) {
                 const note=(open+f)%12, neckFret=BANJO_DRONE_START_FRET+f;
-                if (scaleNotes.includes(note)) drawDot(lm+(neckFret-0.5)*fs, y, 13, note, 11);
+                if (scaleNotes.includes(note) && shouldShow(r,neckFret)) drawDot(lm+(neckFret-0.5)*fs, y, 13, note, 11);
             }
         }
     }
@@ -566,8 +789,8 @@ function updKeyTxt(i)  { const s=document.getElementById('instrumentKey'+i);   i
 function updScaleTxt(i){ const s=document.getElementById('instrumentScale'+i); if(s){const o=s.querySelector('option[value="follow"]');if(o)o.textContent=getInstrumentScale(i);} }
 function updTypeTxt(i) { const s=document.getElementById('instrumentType'+i);  if(s){const o=s.querySelector('option[value="follow"]');if(o)o.textContent=instrumentNames[getInstrumentType(i)];} }
 
-function updateGlobalKey()        { for(let i=0;i<currentInstruments.length;i++) if(instrumentKeys[i]==='follow'){updKeyTxt(i);updateSingleDisplay(i);} updateTitle(); }
-function updateGlobalScale()      { for(let i=0;i<currentInstruments.length;i++) if(instrumentScales[i]==='follow'){updScaleTxt(i);updateSingleDisplay(i);} updateTitle(); }
+function updateGlobalKey()        { for(let i=0;i<currentInstruments.length;i++) if(instrumentKeys[i]==='follow'){updKeyTxt(i);updateShapeOptions(i);updateSingleDisplay(i);} updateTitle(); }
+function updateGlobalScale()      { for(let i=0;i<currentInstruments.length;i++) if(instrumentScales[i]==='follow'){updScaleTxt(i);updateShapeOptions(i);updateSingleDisplay(i);} updateTitle(); }
 function updateGlobalInstrument() {
     const name=instrumentNames[document.getElementById('instrumentSelect').value];
     for(let i=0;i<currentInstruments.length;i++) if(instrumentTypes[i]==='follow'){
@@ -591,30 +814,60 @@ function updateInstrumentShape(i,v) { instrumentShapes[i]=v; updateSingleDisplay
 function updateShapeRowVisibility(i) {
     const row=document.getElementById('shapeRow'+i); if(!row) return;
     const inst=getInstrumentType(i);
-    if(inst==='guitar') row.classList.remove('hidden');
+    if(SHAPE_MODES[inst]) { row.classList.remove('hidden'); updateShapeOptions(i); }
     else { row.classList.add('hidden'); instrumentShapes[i]='full'; }
 }
 function updateShapeOptions(i) {
     const sel=document.getElementById('shapeSelect'+i); if(!sel) return;
     const cv=sel.value;
-    sel.innerHTML=buildShapeOpts(getInstrumentKey(i),getInstrumentScale(i));
+    sel.innerHTML=buildShapeOpts(getInstrumentKey(i),getInstrumentScale(i),getInstrumentType(i));
     if([...sel.options].some(o=>o.value===cv)) sel.value=cv;
     else { sel.value='full'; instrumentShapes[i]='full'; }
 }
 
-function buildShapeOpts(key, scaleType) {
-    const has3NPS=SUPPORTS_3NPS.has(scaleType);
+const CAGED_LETTERS = ['E','D','C','A','G'];
+
+function buildShapeOpts(key, scaleType, instrument) {
+    const caps = SHAPE_MODES[instrument];
+    if (!caps) return '<option value="full">Full Fretboard</option>';
+
+    if (instrument === 'ukulele') {
+        let html = '<option value="full">Full Fretboard</option>';
+        if (scaleType === 'Major' || scaleType === 'Minor') {
+            html += '<optgroup label="CAGFD Shapes">';
+            for (let s=1; s<=5; s++) {
+                const [lo] = cagfdWindow(key, scaleType, s-1);
+                html += `<option value="cagfd${s}">Shape ${s}: ${CAGFD_LETTERS[s-1]} (${ordinal(lo)} Position)</option>`;
+            }
+            html += '</optgroup>';
+        }
+        return html;
+    }
+
+    if (instrument === 'banjo') {
+        let html = '<option value="full">Full Fretboard</option>';
+        if (scaleType === 'Major' || scaleType === 'Minor') {
+            html += '<option value="gpos">G Position (Movable)</option>';
+        }
+        return html;
+    }
+
     let html='<option value="full">Full Fretboard</option><option value="2oct">2 Octaves</option>';
-    html+='<optgroup label="CAGED Shapes">';
-    for(let s=1;s<=5;s++) html+=`<option value="caged${s}">Shape ${s}</option>`;
-    html+='</optgroup>';
-    if(has3NPS){
+    if (caps.caged) {
+        html+='<optgroup label="CAGED Shapes">';
+        for(let s=1;s<=5;s++){
+            const [lo] = cagedWindow(key, scaleType, s-1);
+            html+=`<option value="caged${s}">Shape ${s}: ${CAGED_LETTERS[s-1]} (${ordinal(lo)} Position)</option>`;
+        }
+        html+='</optgroup>';
+    }
+    if (caps.nps && SUPPORTS_3NPS.has(scaleType)){
         html+='<optgroup label="3-Note-Per-String">';
         for(let s=1;s<=7;s++) html+=`<option value="3nps${s}">3NPS Position ${s}</option>`;
         html+='</optgroup>';
     }
-    if (scaleType === 'Blues') html += '<option value="extended">Extended</option>';
-    else if (ALT_KEYS.has(key)) html += '<option value="alt">Alternative Position</option>';
+    if (scaleType === 'Blues' && caps.extended) html += '<option value="extended">Extended</option>';
+    else if (caps.alt && ALT_KEYS.has(key)) html += '<option value="alt">Alternative Position</option>';
     return html;
 }
 
@@ -648,7 +901,7 @@ function updateInstrumentLayout() {
         currentInstruments.push(gi); instrumentKeys.push('follow'); instrumentScales.push('follow');
         instrumentTypes.push('follow'); instrumentShapes.push('full');
         const card=document.createElement('div'); card.className='instrument-card';
-        const isGuitar=gi==='guitar';
+        const hasShapes=!!SHAPE_MODES[gi];
         card.innerHTML=`
             <div class="instrument-controls">
                 <select class="instrument-select" id="instrumentType${i}" onchange="updateInstrumentTypeFromCard(${i},this.value)">${mkTypeOpts(gi)}</select>
@@ -656,8 +909,8 @@ function updateInstrumentLayout() {
                     <select class="key-select" id="instrumentKey${i}" onchange="updateInstrumentKey(${i},this.value)">${mkKeyOpts(gk)}</select>
                     <select class="key-select" id="instrumentScale${i}" onchange="updateInstrumentScale(${i},this.value)">${mkScaleOpts(gs)}</select>
                 </div>
-                <div class="shape-row${isGuitar?'':' hidden'}" id="shapeRow${i}">
-                    <select class="shape-select" id="shapeSelect${i}" onchange="updateInstrumentShape(${i},this.value)">${buildShapeOpts(gk,gs)}</select>
+                <div class="shape-row${hasShapes?'':' hidden'}" id="shapeRow${i}">
+                    <select class="shape-select" id="shapeSelect${i}" onchange="updateInstrumentShape(${i},this.value)">${buildShapeOpts(gk,gs,gi)}</select>
                 </div>
             </div>
             <div class="instrument-name">${instrumentNames[gi]}</div>
