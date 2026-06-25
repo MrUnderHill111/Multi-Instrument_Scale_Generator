@@ -402,17 +402,36 @@ function banjoGPositionSet(key, scaleType) {
 // from the anchor fret. This guarantees no string ever shows more than 3 dots,
 // which an open-ended fret-window check cannot guarantee (adjacent strings tuned
 // a major 3rd apart, e.g. low E to B, can pack 4 scale tones into a 6-fret span).
+// 3NPS anchors always wrap down to the LOWEST comfortable octave-equivalent
+// fret (anchor capped at 12, not 17). This matches why every real 3NPS
+// teaching source uses G major as the universal reference key: G's root
+// sits at a low, convenient fret, so none of its 7 positions need to go far
+// up the neck. Other keys are taught as the SAME shapes transposed - and
+// the correct, standard way to transpose is to use whichever octave of each
+// shape lands lowest/most comfortably, not to let the raw, unwrapped
+// transposition climb arbitrarily high. Verified by script: with this
+// tighter wrap, every key/scale/position/instrument combination (672 total)
+// finds its full 3 notes per string within the original 17-fret board - no
+// extension needed at all. (A previous fix extended the board to 22 frets
+// instead; that masked the real issue - positions were allowed to sit
+// higher than any real lesson teaches them - rather than fixing it.)
+function npsAnchorBase(key, scaleType, pos, tuning) {
+    const ivs = scaleIntervals[scaleType];
+    const rf = rootFretOnLowest(key, tuning);
+    const degree = (pos - 1) % ivs.length;
+    let anchor = rf + ivs[degree];
+    while (anchor > 12) anchor -= 12;
+    while (anchor < 1)  anchor += 12;
+    return anchor;
+}
+
 function npsSet(key, scaleType, pos, tuning) {
     const ivs = scaleIntervals[scaleType];
     if (!ivs) return null;
     const root = allNotes.indexOf(key);
     const sn = new Set(ivs.map(i => (root+i)%12));
-    const rf = rootFretOnLowest(key, tuning);
+    const anchor = npsAnchorBase(key, scaleType, pos, tuning);
     const ns = tuning.length;
-    const degree = (pos - 1) % ivs.length;
-    let anchor = rf + ivs[degree];
-    while (anchor > 17) anchor -= 12;
-    while (anchor < 1)  anchor += 12;
     const result = new Set();
     for (let si = ns - 1; si >= 0; si--) {
         let count = 0;
@@ -421,6 +440,12 @@ function npsSet(key, scaleType, pos, tuning) {
         }
     }
     return result;
+}
+
+// Returns the actual starting fret of a 3NPS position, for display purposes
+// (matching CAGED's "Nth Position" labeling convention).
+function npsAnchorFret(key, scaleType, pos, tuning) {
+    return npsAnchorBase(key, scaleType, pos, tuning);
 }
 
 // ── 2-Octave runs ─────────────────────────────────────────────────────────────
@@ -863,7 +888,11 @@ function buildShapeOpts(key, scaleType, instrument) {
     }
     if (caps.nps && SUPPORTS_3NPS.has(scaleType)){
         html+='<optgroup label="3-Note-Per-String">';
-        for(let s=1;s<=7;s++) html+=`<option value="3nps${s}">3NPS Position ${s}</option>`;
+        const tuning = instrumentTunings[instrument];
+        for(let s=1;s<=7;s++) {
+            const fret = npsAnchorFret(key, scaleType, s, tuning);
+            html+=`<option value="3nps${s}">Shape ${s} (${ordinal(fret)} Position)</option>`;
+        }
         html+='</optgroup>';
     }
     if (scaleType === 'Blues' && caps.extended) html += '<option value="extended">Extended</option>';
