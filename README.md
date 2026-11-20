@@ -8,6 +8,17 @@ Instructions:
 2. Use the dropdown boxes at the individual instrument level to choose a specific instrument and to further customize your key preferences.
 3. Practice and have fun! 
 
+V5.1 Update 11/19/26
+- Added Phrygian, Lydian and Locrian modes, as well as Harmonic Minor, and Melodic Minor scales on every instrument and key, with shape modes on every instrument.
+- New shapes: bass CAGED boxes, violin and mandolin positions 1-7, ukulele shapes for all 12 scales,
+  and banjo shapes for all 12 scales (G, closed, and F positions).
+- Fixed guitar 3NPS: each string now continues the scale instead of repeating notes on the B and
+  high e strings. Board extends to 18 frets where needed.
+- Fixed bass 2-octave runs that were missing notes. Board extends up to 20 frets where needed.
+- Fixed the banjo 5th string, which starts at the 5th fret and was drawn one fret early.
+- Fixed Pentatonic Major CAGED boxes. Dorian and Mixolydian CAGED now use their parent major's boxes.
+- Alternative Position now available in every key for scales that share a major scale's notes.
+
 V5 release -6/22/26
 
 - Guitar fretboard now spans 19 frets, enough room for every new scale shape.
